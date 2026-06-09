@@ -148,9 +148,7 @@ jobs:
 
           # build.gradle (app level)
           cat > $T/app/build.gradle << 'GRADLE'
-          plugins {
-            id 'com.android.application'
-          }
+          apply plugin: 'com.android.application'
           android {
             namespace 'com.shishu.wellness'
             compileSdk 34
@@ -190,7 +188,7 @@ jobs:
           cat > $T/gradle/wrapper/gradle-wrapper.properties << 'WRAPPER'
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.0-bin.zip
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
           zipStoreBase=GRADLE_USER_HOME
           zipStorePath=wrapper/dists
           WRAPPER
@@ -201,14 +199,24 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.0'
+          gradle-version: '8.4'
 
       - name: Build Release APK
         working-directory: /tmp/twa-build
         run: |
-          gradle assembleRelease --no-daemon 2>&1
+          gradle assembleRelease --no-daemon --stacktrace 2>&1 || true
           echo "=== APK output ==="
-          find /tmp/twa-build -name '*.apk' -type f
+          find /tmp/twa-build -name '*.apk' -type f || echo "No APK found"
+          echo "=== Build output directory ==="
+          ls -la /tmp/twa-build/app/build/outputs/apk/release/ 2>/dev/null || echo "No release dir"
+          ls -la /tmp/twa-build/app/build/outputs/ 2>/dev/null || echo "No outputs dir"
+          # Check for build errors
+          cat /tmp/twa-build/app/build/reports/errors.html 2>/dev/null | head -50 || true
+          # Fail if no APK
+          if ! find /tmp/twa-build -name '*.apk' -type f | grep -q apk; then
+            echo "ERROR: No APK generated"
+            exit 1
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
