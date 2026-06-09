@@ -21,9 +21,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android platform and build tools
-        run: |
-          sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
-          echo "ANDROID_HOME=$ANDROID_HOME"
+        run: sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
 
       - name: Generate signing key
         run: |
@@ -39,11 +37,17 @@ jobs:
           for d in hdpi mdpi xhdpi xxhdpi xxxhdpi; do mkdir -p $P/app/src/main/res/mipmap-$d; done
           cp /tmp/twa-keys/release.jks $P/app/keystore.jks
 
-          node -e '
-          const fs = require("fs");
-          const P = "/tmp/twa-project";
+          # Generate simple PNG icons with ImageMagick (pre-installed on ubuntu-latest)
+          for density in xxxhdpi xxhdpi xhdpi hdpi mdpi; do
+            case $density in
+              xxxhdpi) s=512;; xxhdpi) s=192;; xhdpi) s=144;; hdpi) s=96;; mdpi) s=48;;
+            esac
+            convert -size ${s}x${s} xc:'#1B3A2D' $P/app/src/main/res/mipmap-$density/ic_launcher.png
+          done
 
-          fs.writeFileSync(P + "/app/src/main/AndroidManifest.xml", `<?xml version="1.0" encoding="utf-8"?>
+          # Write project files
+          cat > $P/app/src/main/AndroidManifest.xml << 'XMLEOF'
+          <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <application android:allowBackup="true" android:icon="@mipmap/ic_launcher" android:label="Shishu" android:supportsRtl="true" android:theme="@style/Theme.TWA">
               <activity android:name="com.google.androidbrowserhelper.trusted.LauncherActivity" android:label="Shishu" android:exported="true">
@@ -56,37 +60,47 @@ jobs:
               </service>
               <meta-data android:name="asset_statements" android:resource="@string/asset_statements"/>
             </application>
-          </manifest>`);
+          </manifest>
+          XMLEOF
 
-          fs.writeFileSync(P + "/app/src/main/res/values/strings.xml", `<?xml version="1.0" encoding="utf-8"?>
+          cat > $P/app/src/main/res/values/strings.xml << 'XMLEOF'
+          <?xml version="1.0" encoding="utf-8"?>
           <resources>
             <string name="app_name">Shishu</string>
             <string name="asset_statements">[{"relation": ["delegate_permission/common.handle_all_urls"], "target": {"namespace": "web", "site": "https://shishu.xn--fiqs8s"}}]</string>
-          </resources>`);
+          </resources>
+          XMLEOF
 
-          fs.writeFileSync(P + "/app/src/main/res/values/colors.xml", `<?xml version="1.0" encoding="utf-8"?>
+          cat > $P/app/src/main/res/values/colors.xml << 'XMLEOF'
+          <?xml version="1.0" encoding="utf-8"?>
           <resources>
             <color name="colorPrimary">#1B3A2D</color>
             <color name="colorPrimaryDark">#1B3A2D</color>
             <color name="colorAccent">#4CAF50</color>
-          </resources>`);
+          </resources>
+          XMLEOF
 
-          fs.writeFileSync(P + "/app/src/main/res/values/styles.xml", `<?xml version="1.0" encoding="utf-8"?>
+          cat > $P/app/src/main/res/values/styles.xml << 'XMLEOF'
+          <?xml version="1.0" encoding="utf-8"?>
           <resources>
             <style name="Theme.TWA" parent="Theme.AppCompat.Light.NoActionBar">
               <item name="colorPrimary">@color/colorPrimary</item>
               <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
               <item name="colorAccent">@color/colorAccent</item>
             </style>
-          </resources>`);
+          </resources>
+          XMLEOF
 
-          fs.writeFileSync(P + "/build.gradle", `buildscript {
+          cat > $P/build.gradle << 'GRADLEEOF'
+          buildscript {
             repositories { google(); mavenCentral() }
             dependencies { classpath "com.android.tools.build:gradle:8.1.4" }
           }
-          allprojects { repositories { google(); mavenCentral() } }`);
+          allprojects { repositories { google(); mavenCentral() } }
+          GRADLEEOF
 
-          fs.writeFileSync(P + "/app/build.gradle", `apply plugin: "com.android.application"
+          cat > $P/app/build.gradle << 'GRADLEEOF'
+          apply plugin: "com.android.application"
           android {
             namespace "com.shishu.wellness"
             compileSdk 34
@@ -114,48 +128,15 @@ jobs:
           }
           dependencies {
             implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.5.0"
-          }`);
-
-          fs.writeFileSync(P + "/settings.gradle", "include \\":app\"");
-          fs.writeFileSync(P + "/gradle.properties", "android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m");
-          fs.writeFileSync(P + "/local.properties", "sdk.dir=" + process.env.ANDROID_HOME);
-
-          // Generate solid-color PNG icons
-          const zlib = require("zlib");
-          function writePNG(path, size) {
-            const raw = Buffer.alloc((size * 4 + 1) * size);
-            for (let y = 0; y < size; y++) {
-              raw[y * (size * 4 + 1)] = 0;
-              for (let x = 0; x < size; x++) {
-                const off = y * (size * 4 + 1) + 1 + x * 4;
-                raw[off] = 27; raw[off+1] = 58; raw[off+2] = 45; raw[off+3] = 255;
-              }
-            }
-            const deflated = zlib.deflateSync(raw);
-            const chunks = [];
-            chunks.push(Buffer.from("\\x89PNG\\r\\n\\x1a\\n"));
-            function writeChunk(type, data) {
-              const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
-              const typeB = Buffer.from(type);
-              const crc = zlib.crc32(Buffer.concat([typeB, data]));
-              const crcB = Buffer.alloc(4); crcB.writeUInt32BE(crc >>> 0);
-              chunks.push(len, typeB, data, crcB);
-            }
-            const ihdr = Buffer.alloc(13);
-            ihdr.writeUInt32BE(size, 0); ihdr.writeUInt32BE(size, 4);
-            ihdr[8] = 8; ihdr[9] = 6;
-            writeChunk("IHDR", ihdr);
-            writeChunk("IDAT", deflated);
-            writeChunk("IEND", Buffer.alloc(0));
-            fs.writeFileSync(path, Buffer.concat(chunks));
           }
+          GRADLEEOF
 
-          const sizes = { xxxhdpi: 512, xxhdpi: 192, xhdpi: 144, hdpi: 96, mdpi: 48 };
-          for (const [d, s] of Object.entries(sizes)) {
-            writePNG(`${P}/app/src/main/res/mipmap-${d}/ic_launcher.png`, s);
-          }
-          console.log("Done");
-          '
+          echo 'include ":app"' > $P/settings.gradle
+          echo -e 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m' > $P/gradle.properties
+          echo "sdk.dir=$ANDROID_HOME" > $P/local.properties
+
+          echo "=== Project files created ==="
+          find $P -type f | grep -v '.jks' | head -20
 
       - name: Build APK with Gradle
         run: |
