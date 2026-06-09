@@ -90,7 +90,7 @@ async function renderTCM(){updateThemeIcon();
   var b='<div class="page"><div class="loading"><div class="spinner"></div><p>加载医生列表...</p></div></div>';
   document.getElementById('app').innerHTML=h+b+nav('home');
   try{
-    var doctors=await api('/tcm/doctors');
+    var doctors=await api('/api/tcm/doctors');
     var html='<div style="padding:8px 16px 4px"><p style="font-size:13px;color:var(--text2);margin:0">选择医生开始问诊</p></div>'+
       '<div style="padding:0 16px">';
     for(var di=0;di<doctors.length;di++){
@@ -185,7 +185,7 @@ window.sendMsg=async function(){
 async function pollMessages(){
   if(!window._consultId)return;
   try{
-    var msgs=await api('/tcm/messages/'+window._consultId);
+    var msgs=await api('/api/tcm/messages/'+window._consultId);
     var area=document.getElementById('msg-area');
     if(area&&msgs&&msgs.length){
       var html='';
@@ -211,7 +211,7 @@ async function pollMessages(){
 // 查看处方
 window.showPrescription=async function(cid){
   try{
-    var pres=await api('/tcm/prescriptions/'+cid);
+    var pres=await api('/api/tcm/prescriptions/'+cid);
     if(!pres||!pres.id){toast('暂无处方','error');return;}
     var herbs=[];
     try{herbs=JSON.parse(pres.prescription_text);}catch(e){herbs=pres.prescription_text||[];}
@@ -272,9 +272,9 @@ var teaData = {};
 // 茶养首页
 // ═══════════════════════════════════════════════════
 async function renderShop(cat){updateThemeIcon();try{
-  var prods=await api('/shop/products');
-  var cats=await api('/shop/categories');
-  var cartItems=await api('/shop/cart');
+  var prods=await api('/api/shop/products');
+  var cats=await api('/api/shop/categories');
+  var cartItems=await api('/api/shop/cart');
   var cartCount=cartItems?cartItems.reduce(function(s,i){return s+i.quantity;},0):0;
   // 筛选分类
   if(cat&&cat!=='全部')prods=prods.filter(function(p){return p.category===cat;});
@@ -317,7 +317,7 @@ async function renderShop(cat){updateThemeIcon();try{
   }
   document.getElementById('app').innerHTML=h+nav('shop');
 }catch(e){document.getElementById('app').innerHTML='<div class="page"><div style="padding:40px">加载失败</div></div>'+nav('shop');}}
-function openPrd(id){api('/shop/products/'+id).then(function(p){navigate('shop-product',{product:p});}).catch(function(e){toast(e.message,'error');});}
+function openPrd(id){api('/api/shop/products/'+id).then(function(p){navigate('shop-product',{product:p});}).catch(function(e){toast(e.message,'error');});}
 function renderShopProduct(){var p=state.pageParams.product;var h=hd(p.name);var colors=['#4CAF50','#FF9800','#2196F3','#9C27B0','#F44336','#00BCD4','#FF5722','#607D8B','#795548','#8BC34A'];var bg=colors[p.id%colors.length];var emojis=['🍵','🌿','🍯','🥜','🍄','🥬','🍊','🍚','🫘','🌾','🍠','🥦','🍇','🥛','🧊','🍳','🥟','🍜','🥗','🧁'];var emoji=emojis[p.id%emojis.length];var disc=p.original_price&&p.original_price>p.price?Math.round((1-p.price/p.original_price)*100):0;
 var b='<div class="page" style="padding-bottom:100px">'+
   // 大图区
@@ -345,7 +345,7 @@ var b='<div class="page" style="padding-bottom:100px">'+
   '<button class="btn" style="flex:1;padding:12px;border-radius:10px;font-size:14px;background:var(--gradient,linear-gradient(135deg,var(--green),#2d8a4e));color:#fff;border:none" onclick="addToCart('+p.id+');setTimeout(function(){navigate(\'shop-cart\')},300)">立即购买</button>'+
   '</div></div>';
 document.getElementById('app').innerHTML=h+b;}
-async function renderShopCart(){updateThemeIcon();try{var items=await api('/shop/cart');var h=hd('购物车');if(!items||!items.length){document.getElementById('app').innerHTML=h+'<div class="page"><div style="padding:80px 20px;text-align:center"><div style="font-size:64px;margin-bottom:16px">🛒</div><div style="font-size:16px;color:var(--text2)">购物车是空的</div><button onclick="navigate(\'shop\')" class="btn btn-primary mt-4" style="padding:10px 30px;border-radius:10px">去逛逛</button></div></div>'+nav('shop');return;}var colors=['#4CAF50','#FF9800','#2196F3','#9C27B0','#F44336','#00BCD4','#FF5722','#607D8B','#795548','#8BC34A'];var emojis=['🍵','🌿','🍯','🥜','🍄','🥬','🍊','🍚','🫘','🌾','🍠','🥦','🍇','🥛','🧊','🍳','🥟','🍜','🥗','🧁'];var html='<div class="page" style="padding-bottom:100px">';var total=0;for(var i=0;i<items.length;i++){var it=items[i];var subtotal=it.price*it.quantity;total+=subtotal;var bg=colors[it.product_id%colors.length];var emoji=emojis[it.product_id%emojis.length];html+='<div class="card" style="display:flex;gap:12px;padding:12px;border-radius:12px;margin-bottom:8px">'+
+async function renderShopCart(){updateThemeIcon();try{var items=await api('/api/shop/cart');var h=hd('购物车');if(!items||!items.length){document.getElementById('app').innerHTML=h+'<div class="page"><div style="padding:80px 20px;text-align:center"><div style="font-size:64px;margin-bottom:16px">🛒</div><div style="font-size:16px;color:var(--text2)">购物车是空的</div><button onclick="navigate(\'shop\')" class="btn btn-primary mt-4" style="padding:10px 30px;border-radius:10px">去逛逛</button></div></div>'+nav('shop');return;}var colors=['#4CAF50','#FF9800','#2196F3','#9C27B0','#F44336','#00BCD4','#FF5722','#607D8B','#795548','#8BC34A'];var emojis=['🍵','🌿','🍯','🥜','🍄','🥬','🍊','🍚','🫘','🌾','🍠','🥦','🍇','🥛','🧊','🍳','🥟','🍜','🥗','🧁'];var html='<div class="page" style="padding-bottom:100px">';var total=0;for(var i=0;i<items.length;i++){var it=items[i];var subtotal=it.price*it.quantity;total+=subtotal;var bg=colors[it.product_id%colors.length];var emoji=emojis[it.product_id%emojis.length];html+='<div class="card" style="display:flex;gap:12px;padding:12px;border-radius:12px;margin-bottom:8px">'+
   '<div style="width:72px;height:72px;border-radius:10px;background:linear-gradient(135deg,'+bg+',rgba(0,0,0,0.1));display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">'+emoji+'</div>'+
   '<div style="flex:1;display:flex;flex-direction:column;justify-content:space-between">'+
   '<div><div style="font-size:14px;font-weight:600">'+esc(it.name)+'</div><div style="font-size:12px;color:var(--text2);margin-top:2px">'+esc(it.category||'')+'</div></div>'+
@@ -361,8 +361,8 @@ html+='<div style="position:fixed;bottom:58px;left:0;right:0;background:var(--ca
   '<div><span style="font-size:12px;color:var(--text2)">合计</span><span style="font-size:22px;font-weight:700;color:var(--green);margin-left:6px">¥'+total.toFixed(1)+'</span></div>'+
   '<button class="btn" style="padding:10px 28px;border-radius:10px;font-size:15px;background:linear-gradient(135deg,var(--green),#2d8a4e);color:#fff;border:none;cursor:pointer" onclick="goCheckout()">去结算</button></div>';
 document.getElementById('app').innerHTML=h+html+nav('shop');}catch(e){document.getElementById('app').innerHTML=hd('购物车')+'<div class="page"><div style="padding:40px">加载失败</div></div>'+nav('shop');}}
-function updateCartQty(cartId,prodId,qty){if(qty<=0){delFromCart(cartId);return;}api('/shop/cart/update',{method:'POST',body:JSON.stringify({id:cartId,quantity:qty})}).then(function(){renderShopCart();}).catch(function(e){toast(e.message,'error');});}
-function delFromCart(id){api('/shop/cart/remove',{method:'POST',body:JSON.stringify({id:id})}).then(function(){renderShopCart();}).catch(function(e){toast(e.message,'error');});}
+function updateCartQty(cartId,prodId,qty){if(qty<=0){delFromCart(cartId);return;}api('/api/shop/cart/update',{method:'POST',body:JSON.stringify({id:cartId,quantity:qty})}).then(function(){renderShopCart();}).catch(function(e){toast(e.message,'error');});}
+function delFromCart(id){api('/api/shop/cart/remove',{method:'POST',body:JSON.stringify({id:id})}).then(function(){renderShopCart();}).catch(function(e){toast(e.message,'error');});}
 function goCheckout(){var h=hd('确认订单');var b='<div class="page" style="padding-bottom:20px">'+
   '<div class="card" style="border-radius:12px">'+
   '<div style="font-size:14px;font-weight:600;color:var(--green);margin-bottom:12px">📍 收货信息</div>'+
@@ -372,8 +372,8 @@ function goCheckout(){var h=hd('确认订单');var b='<div class="page" style="p
   '<div class="form-group"><label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px">备注</label><input id="ch-remark" class="form-input" placeholder="选填 如：请放门卫处" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);box-sizing:border-box"></div></div>'+
   '<button class="btn btn-primary btn-block btn-lg" onclick="submitOrder()" style="width:100%;padding:14px;border-radius:12px;font-size:16px;background:linear-gradient(135deg,var(--green),#2d8a4e);color:#fff;border:none;cursor:pointer">确认下单</button></div>';
 document.getElementById('app').innerHTML=h+b;}
-async function submitOrder(){try{var name=document.getElementById('ch-name').value;var phone=document.getElementById('ch-phone').value;var addr=document.getElementById('ch-addr').value;if(!name||!phone||!addr){toast('请填写完整信息','error');return;}var items=await api('/shop/cart');if(!items||!items.length){toast('购物车为空','error');return;}await api('/shop/orders/create',{method:'POST',body:JSON.stringify({items:items.map(function(x){return{product_id:x.product_id,quantity:x.quantity};}),consignee:name,phone:phone,address:addr,remark:document.getElementById('ch-remark').value||''})});for(var i=0;i<items.length;i++){await api('/shop/cart/remove',{method:'POST',body:JSON.stringify({id:items[i].id})});}toast('下单成功！');navigate('shop');}catch(e){toast(e.message,'error');}}
-async function addToCart(p){try{await api('/shop/cart/add',{method:'POST',body:JSON.stringify({product_id:p,quantity:1})});toast('已加入购物车');}catch(e){toast(e.message,'error');}}
+async function submitOrder(){try{var name=document.getElementById('ch-name').value;var phone=document.getElementById('ch-phone').value;var addr=document.getElementById('ch-addr').value;if(!name||!phone||!addr){toast('请填写完整信息','error');return;}var items=await api('/api/shop/cart');if(!items||!items.length){toast('购物车为空','error');return;}await api('/api/shop/orders/create',{method:'POST',body:JSON.stringify({items:items.map(function(x){return{product_id:x.product_id,quantity:x.quantity};}),consignee:name,phone:phone,address:addr,remark:document.getElementById('ch-remark').value||''})});for(var i=0;i<items.length;i++){await api('/api/shop/cart/remove',{method:'POST',body:JSON.stringify({id:items[i].id})});}toast('下单成功！');navigate('shop');}catch(e){toast(e.message,'error');}}
+async function addToCart(p){try{await api('/api/shop/cart/add',{method:'POST',body:JSON.stringify({product_id:p,quantity:1})});toast('已加入购物车');}catch(e){toast(e.message,'error');}}
 // ################################################################
 // tea_frontend.js - 茶养模块前端渲染函数 (修复版)
 // 注意：所有 HTML onclick 中的字符串参数必须用 &apos; 或 encodeURIComponent
@@ -645,5 +645,6 @@ function updateTabBar() {
     if (shopTab) shopTab.classList.add('active');
   }
 }
+
 
 
