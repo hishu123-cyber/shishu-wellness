@@ -20,14 +20,6 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install Bubblewrap
-        run: npm install -g bubblewrap
-
       - name: Generate signing key
         run: |
           keytool -genkeypair -v \
@@ -46,65 +38,45 @@ jobs:
           keytool -list -v -keystore /tmp/keystore.jks -alias key0 -storepass android 2>&1 | grep -i 'SHA256' || true
           echo "=== Copy this fingerprint to server.js assetlinks.json ==="
 
-      - name: Init TWA project
+      - name: Build TWA APK
         run: |
-          bubblewrap init \
-            --manifest=https://shishu.xn--fiqs8s/manifest.json \
-            --directory=/tmp/twa-project \
-            --shellLauncherUrl="/app" || true
-
-      - name: Build APK with Bubblewrap
-        run: |
-          if [ -f /tmp/twa-project/gradlew ]; then
-            cd /tmp/twa-project
-            chmod +x gradlew
-            ./gradlew assembleRelease 2>&1 || true
-          fi
-          find /tmp -name '*.apk' -type f 2>/dev/null | head -5
-
-      - name: Manual TWA build (fallback if Bubblewrap failed)
-        if: always()
-        run: |
-          # Check if APK already exists from Bubblewrap
-          if find /tmp -name '*.apk' -type f 2>/dev/null | grep -q apk; then
-            echo "APK already built by Bubblewrap, skipping manual build"
-            exit 0
-          fi
-
-          echo "=== Building manual TWA project ==="
-          P=/tmp/manual-twa
+          P=/tmp/twa-project
           mkdir -p $P/app/src/main/java/com/shishu/wellness
           mkdir -p $P/app/src/main/res/{values,mipmap-hdpi,mipmap-mdpi,mipmap-xhdpi,mipmap-xxhdpi,mipmap-xxxhdpi}
           mkdir -p $P/gradle/wrapper
 
-          # Generate simple icons with ImageMagick if available, otherwise use a 1x1 placeholder
-          if command -v convert &> /dev/null; then
-            convert -size 512x512 xc:'#1B3A2D' -gravity center -fill white -pointsize 200 -annotate 0 '食术' $P/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-            convert -size 192x192 xc:'#1B3A2D' -gravity center -fill white -pointsize 72 -annotate 0 '食术' $P/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-            convert -size 144x144 xc:'#1B3A2D' -gravity center -fill white -pointsize 54 -annotate 0 '食术' $P/app/src/main/res/mipmap-xhdpi/ic_launcher.png
-            convert -size 96x96 xc:'#1B3A2D' -gravity center -fill white -pointsize 36 -annotate 0 '食术' $P/app/src/main/res/mipmap-hdpi/ic_launcher.png
-            convert -size 48x48 xc:'#1B3A2D' -gravity center -fill white -pointsize 18 -annotate 0 '食术' $P/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          else
-            # Use Python to create simple icons
-            python3 -c "
+          # Generate icons with Python PIL
+          pip3 install Pillow 2>/dev/null || true
+          python3 -c "
+          try:
             from PIL import Image, ImageDraw, ImageFont
-            import os
             sizes = {'xxxhdpi': 512, 'xxhdpi': 192, 'xhdpi': 144, 'hdpi': 96, 'mdpi': 48}
             for density, size in sizes.items():
                 img = Image.new('RGBA', (size, size), (27, 58, 45, 255))
                 d = ImageDraw.Draw(img)
                 try:
-                    f = ImageFont.truetype('/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc', size//3)
+                    f = ImageFont.truetype('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', size//3)
                 except:
-                    f = ImageFont.load_default()
-                bbox = d.textbbox((0,0), '食', font=f)
+                    try:
+                        f = ImageFont.truetype('/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc', size//3)
+                    except:
+                        f = ImageFont.load_default()
+                text = '食'
+                bbox = d.textbbox((0,0), text, font=f)
                 w = bbox[2]-bbox[0]; h = bbox[3]-bbox[1]
-                d.text(((size-w)//2, (size-h)//2 - bbox[1]), '食', fill='white', font=f)
+                d.text(((size-w)//2, (size-h)//2 - bbox[1]), text, fill='white', font=f)
                 path = f'$P/app/src/main/res/mipmap-{density}/ic_launcher.png'
                 img.save(path)
-                print(f'Created {path}')
-            " 2>&1 || echo "PIL not available, creating placeholder icons"
-          fi
+                print(f'Created {path} ({size}x{size})')
+          except Exception as e:
+            print(f'PIL error: {e}, creating placeholder icons')
+            import subprocess
+            for density, size in {'xxxhdpi':512,'xxhdpi':192,'xhdpi':144,'hdpi':96,'mdpi':48}.items():
+                subprocess.run(['convert','-size',f'{size}x{size}','xc:#1B3A2D','-gravity','center',
+                    '-fill','white','-pointsize',str(size//3),'-annotate','0','S',
+                    f'$P/app/src/main/res/mipmap-{density}/ic_launcher.png'], capture_output=True)
+          " || true
+          ls -la $P/app/src/main/res/mipmap-*/ic_launcher.png || echo "Icon generation may have failed"
 
           # build.gradle (project)
           cat > $P/build.gradle << 'GRADLE'
@@ -144,6 +116,7 @@ jobs:
           }
           GRADLE
 
+          # AndroidManifest.xml
           cat > $P/app/src/main/AndroidManifest.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -183,6 +156,7 @@ jobs:
           </manifest>
           XML
 
+          # Resource files
           cat > $P/app/src/main/res/values/strings.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
@@ -214,23 +188,18 @@ jobs:
           echo 'include ":app"' > $P/settings.gradle
           echo -e 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m' > $P/gradle.properties
 
+          # Build
           cd $P
           gradle wrapper --gradle-version 8.0 2>&1
           chmod +x gradlew
           ./gradlew assembleRelease 2>&1
+          echo "=== APK files ==="
           find . -name '*.apk' -type f 2>/dev/null
-
-      - name: Collect APK
-        if: always()
-        run: |
-          mkdir -p /tmp/apk-output
-          find /tmp -name '*.apk' -type f -exec cp {} /tmp/apk-output/ \; 2>/dev/null
-          ls -la /tmp/apk-output/ || echo "No APK files found"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: wellness-app-apk
-          path: /tmp/apk-output/
-          if-no-files-found: warn
+          path: /tmp/twa-project/app/build/outputs/apk/release/
+          if-no-files-found: error
