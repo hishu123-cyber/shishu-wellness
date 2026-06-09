@@ -30,22 +30,38 @@ jobs:
           echo "=== SHA256 Fingerprint ==="
           keytool -list -v -keystore /tmp/twa-keys/release.jks -alias key0 -storepass android 2>&1 | grep SHA256
 
-      - name: Create TWA project files
+      - name: Create TWA project and build
         run: |
           P=/tmp/twa-project
           mkdir -p $P/app/src/main/res/values
           for d in hdpi mdpi xhdpi xxhdpi xxxhdpi; do mkdir -p $P/app/src/main/res/mipmap-$d; done
           cp /tmp/twa-keys/release.jks $P/app/keystore.jks
 
-          # Generate simple PNG icons with ImageMagick (pre-installed on ubuntu-latest)
-          for density in xxxhdpi xxhdpi xhdpi hdpi mdpi; do
-            case $density in
-              xxxhdpi) s=512;; xxhdpi) s=192;; xhdpi) s=144;; hdpi) s=96;; mdpi) s=48;;
-            esac
-            convert -size ${s}x${s} xc:'#1B3A2D' $P/app/src/main/res/mipmap-$density/ic_launcher.png
-          done
+          # Generate icons using Python (always available on ubuntu-latest)
+          python3 << 'PYEOF'
+          import struct, zlib, os
+          P = "/tmp/twa-project"
+          sizes = {"xxxhdpi": 512, "xxhdpi": 192, "xhdpi": 144, "hdpi": 96, "mdpi": 48}
+          for density, size in sizes.items():
+              # Create a solid color PNG (#1B3A2D)
+              raw = b""
+              for y in range(size):
+                  raw += b"\x00"  # filter byte
+                  raw += bytes([27, 58, 45, 255]) * size  # RGBA
+              deflated = zlib.compress(raw)
+              # Build PNG
+              def chunk(ctype, data):
+                  c = ctype + data
+                  return struct.pack(">I", len(data)) + c + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+              ihdr = struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0)
+              png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IDAT", deflated) + chunk(b"IEND", b"")
+              path = os.path.join(P, f"app/src/main/res/mipmap-{density}/ic_launcher.png")
+              with open(path, "wb") as f:
+                  f.write(png)
+              print(f"Created {path} ({size}x{size})")
+          PYEOF
 
-          # Write project files
+          # Write AndroidManifest.xml
           cat > $P/app/src/main/AndroidManifest.xml << 'XMLEOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -131,12 +147,12 @@ jobs:
           }
           GRADLEEOF
 
-          echo 'include ":app"' > $P/settings.gradle
-          echo -e 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m' > $P/gradle.properties
-          echo "sdk.dir=$ANDROID_HOME" > $P/local.properties
+          printf 'include ":app"\n' > $P/settings.gradle
+          printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m\n' > $P/gradle.properties
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > $P/local.properties
 
-          echo "=== Project files created ==="
-          find $P -type f | grep -v '.jks' | head -20
+          echo "=== Project structure ==="
+          find $P -type f | grep -v '.jks' | sort
 
       - name: Build APK with Gradle
         run: |
@@ -144,6 +160,7 @@ jobs:
           gradle wrapper --gradle-version 8.4
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tail -80
+          echo "=== APK files ==="
           find /tmp/twa-project -name "*.apk" -type f
 
       - name: Upload APK
