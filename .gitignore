@@ -1,0 +1,7 @@
+node_modules/
+backend/data/
+logs/
+*.log
+.env
+.env.local
+*.keystore
