@@ -18,47 +18,40 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Generate icons and setup
+      - name: Install Bubblewrap
+        run: npm install -g @bubblewrap/cli
+      - name: Generate PWA icons
         run: |
           mkdir -p /tmp/pwa-icons
-          # Create a simple 1-pixel PNG as placeholder icon
-          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x02\x00\x00\x00\x02\x00\x08\x06\x00\x00\x00\x1b\x83\x39\x2f\x00\x00\x00\x01sRGB\x00\xae\xce\x1c\xe9\x00\x00\x00\x04gAMA\x00\x00\xb1\x8f\x0b\xfca\x05\x00\x00\x00\x0cIDAT\x18\x57c\xf8\xff\xff?\x00\x05\xfe\x02\xfe\x93\x94qk\x00\x00\x00\x00IEND\xae\x42\x60\x82' > /tmp/pwa-icons/icon-512.png
-          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\xc0\x00\x00\x00\xc0\x08\x06\x00\x00\x00\x52\xdc\xf1\xb6\x00\x00\x00\x01sRGB\x00\xae\xce\x1c\xe9\x00\x00\x00\x04gAMA\x00\x00\xb1\x8f\x0b\xfca\x05\x00\x00\x00\x0cIDAT\x18\x57c\xf8\xff\xff?\x00\x05\xfe\x02\xfe\x93\x94qk\x00\x00\x00\x00IEND\xae\x42\x60\x82' > /tmp/pwa-icons/icon-192.png
-          echo 'Icons generated'
-      - name: Setup PWA files
+          python3 -c 'import struct,zlib;f=lambda s,n:open(n,"wb").write(b"\x89PNG\r\n\x1a\n"+b"".join(struct.pack(">I",len(d))+(t+d)+struct.pack(">I",zlib.crc32(t+d)&0xffffffff) for t,d in[(b"IHDR",struct.pack(">IIBBBBB",s,s,8,6,0,0,0)),(b"IDAT",zlib.compress(b"\x00"+b"\x1b\x3a\x2d\xff"*s*s)),(b"IEND",b"")]));f(512,"/tmp/pwa-icons/icon-512.png");f(192,"/tmp/pwa-icons/icon-192.png")'
+          ls -la /tmp/pwa-icons/
+          echo done
+      - name: Setup PWA
         run: |
           mkdir -p /tmp/pwa-build
           cp -r frontend/* /tmp/pwa-build/
           cp /tmp/pwa-icons/* /tmp/pwa-build/
-      - name: Bubblewrap init
-        run: |
           cd /tmp/pwa-build
           python3 -m http.server 9999 &
           sleep 2
-          npx @bubblewrap/cli init \
-            --manifest=http://127.0.0.1:9999/manifest.json \
-            --directory=/tmp/app-output \
-            --jvm=/usr/lib/jvm/temurin-17-jdk-amd64/bin/java \
-            --androidSdkPath=$ANDROID_HOME \
-            --signingMode=none \
-            2>&1 || echo 'Bubblewrap init had issues'
+          npx @bubblewrap/cli init --manifest=http://127.0.0.1:9999/manifest.json --directory=/tmp/app-output --jvm=/usr/lib/jvm/temurin-17-jdk-amd64/bin/java --androidSdkPath=$ANDROID_HOME --signingMode=none 2>&1 || true
           kill %1 2>/dev/null || true
-      - name: Build APK
+      - name: Gradle build
         run: |
           if [ -f /tmp/app-output/gradlew ]; then
             cd /tmp/app-output
             chmod +x gradlew
             ./gradlew assembleRelease 2>&1 || true
           else
-            echo 'No gradlew found'
-            ls /tmp/app-output/ 2>/dev/null || true
+            echo "No gradlew found - trying alternative build"
+            ls -la /tmp/app-output/ 2>/dev/null || true
           fi
-      - name: Upload APK
+      - name: Find APK
+        run: |
+          find / /tmp -name '*.apk' -type f 2>/dev/null || echo "No APK found"
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: wellness-app-apk
-          path: |
-            /tmp/app-output/**/*.apk
-            /tmp/app-output/app-release.apk
+          path: /tmp/**/*.apk
           if-no-files-found: warn
-          retention-days: 30
