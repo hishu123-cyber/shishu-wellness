@@ -1,10 +1,10 @@
-// 食术·中医体质养生 - Service Worker v1
-const CACHE_NAME = 'wellness-v1';
+// 食术·中医体质养生 - Service Worker v2
+const CACHE_NAME = 'wellness-v2';
 const ASSETS = [
   '/',
   '/app',
   '/styles.css',
-  '/app.js',
+  '/app_test.js',
   '/manifest.json',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
   'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;600;700&display=swap'
