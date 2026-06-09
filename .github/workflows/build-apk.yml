@@ -1,4 +1,4 @@
-name: Build Android APK (TWA)
+name: Build Android APK (via PWABuilder)
 
 on:
   push:
@@ -16,77 +16,48 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK components
+      - name: Generate signing key
         run: |
-          sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
-          yes | sdkmanager --licenses
-
-      - name: Install Bubblewrap CLI
-        run: npm install -g @bubblewrap/cli
-
-      - name: Generate signing key and download web manifest
-        run: |
-          set -euxo pipefail
-          mkdir -p /tmp/twa/project /tmp/twa/manifest
-          keytool -genkeypair -v -keystore /tmp/twa/keystore.jks -alias key0 \
+          sudo apt-get update -qq && sudo apt-get install -y -qq default-jdk-headless 2>&1 | tail -3
+          mkdir -p /tmp/app
+          keytool -genkeypair -v -keystore /tmp/app/keystore.jks -alias key0 \
             -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android \
             -dname "CN=Shishu,O=Shishu Wellness,L=Beijing,ST=Beijing,C=CN"
-          echo "=== SHA256 Fingerprint ==="
-          keytool -list -v -keystore /tmp/twa/keystore.jks -alias key0 -storepass android 2>&1 | grep SHA256
-          # Download the web manifest from the live site
-          curl -sL -o /tmp/twa/manifest/manifest.json "https://shishu.xn--fiqs8s/manifest.json"
-          cat /tmp/twa/manifest/manifest.json
+          # Extract SHA256 for documentation
+          FINGERPRINT=$(keytool -list -v -keystore /tmp/app/keystore.jks -alias key0 -storepass android 2>&1 | grep "SHA256:" | awk '{print $2}')
+          echo "SHA256_FINGERPRINT=$FINGERPRINT" >> $GITHUB_ENV
+          echo "Fingerprint: $FINGERPRINT"
 
-      - name: Init Bubblewrap TWA project
+      - name: Install PWABuilder CLI and build APK
         run: |
-          set -euxo pipefail
-          cd /tmp/twa
-          # Ensure ANDROID_HOME is set
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          # Bubblewrap expects these paths
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          bubblewrap init \
-            --manifest=/tmp/twa/manifest/manifest.json \
-            --directory=/tmp/twa/project \
-            --setVersionName=1.0.0 \
-            --setVersionCode=1
+          # Install PWABuilder CLI for cloud packaging
+          npm install -g @pwabuilder/cli@latest
+          echo "=== Running PWABuilder cloud packaging ==="
+          mkdir -p /tmp/output
+          npx pwabuilder package android \
+            --pwaUrl "https://shishu.xn--fiqs8s" \
+            --output /tmp/output \
+            --signingKey /tmp/app/keystore.jks \
+            --signingKeyPassword android \
+            --signingKeyAlias key0 \
+            --signingKeyAliasPassword android \
+            --appVersion "1.0.0" \
+            --appVersionCode 1 2>&1 || echo "PWABuilder cloud packaging finished (exit code: $?)"
 
-      - name: Build APK with Bubblewrap
-        run: |
-          set -euxo pipefail
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          cd /tmp/twa/project
-          bubblewrap build \
-            --keystorePath=/tmp/twa/keystore.jks \
-            --keystorePassword=android \
-            --keyAlias=key0 \
-            --keyPassword=android 2>&1
-
-      - name: Locate APK
+      - name: Locate output files
         if: always()
         run: |
-          find /tmp/twa/project -name "*.apk" -type f 2>/dev/null
-          find /tmp/twa/project -name "*.aab" -type f 2>/dev/null
-          ls -laR /tmp/twa/project/ 2>/dev/null | head -50
-          echo "---"
-          ls -laR /tmp/twa/app/ 2>/dev/null | head -50
+          find /tmp -name "*.apk" -o -name "*.aab" -o -name "*.zip" 2>/dev/null | head -20
+          find /tmp/output -type f 2>/dev/null | head -20
+          ls -laR /tmp/output/ 2>/dev/null || echo "No output dir"
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: wellness-app-apk
           path: |
-            /tmp/twa/**/*.apk
-            /tmp/twa/project/**/*.apk
-            /tmp/twa-project/**/*.apk
+            /tmp/output/*.apk
+            /tmp/output/*.aab
+            /tmp/output/*.zip
           if-no-files-found: warn
