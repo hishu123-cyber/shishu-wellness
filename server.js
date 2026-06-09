@@ -117,24 +117,9 @@ app.use(express.json());
 app.get("/landing",function(req,res){res.sendFile(__dirname+"/体验入口.html");});
 app.get("/",function(req,res){res.sendFile(path.join(__dirname,"frontend","index.html"));});
 app.get("/app",function(req,res){res.sendFile(path.join(__dirname,"frontend","app.html"));});
-app.use(express.static(path.join(__dirname, 'frontend'), {
-  maxAge: '7d',
-  setHeaders: function(res, fp) {
-    if (fp.endsWith('.css') || fp.endsWith('.js')) {
-      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
-    } else if (fp.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache');
-    } else {
-      res.setHeader('Cache-Control', 'public, max-age=86400');
-    }
-  }
-}));
-
-// Digital Asset Links for TWA
+// Digital Asset Links for TWA (must be BEFORE express.static)
 app.get('/.well-known/assetlinks.json', function(req, res) {
   res.setHeader('Content-Type', 'application/json');
-  // SHA256 fingerprint will be updated after first APK build
-  // Generate fingerprint: keytool -list -v -keystore keystore.jks -alias key0 -storepass android
   res.json([
     {
       relation: ['delegate_permission/common.handle_all_urls'],
@@ -148,6 +133,21 @@ app.get('/.well-known/assetlinks.json', function(req, res) {
     }
   ]);
 });
+
+app.use(express.static(path.join(__dirname, 'frontend'), {
+  maxAge: '7d',
+  setHeaders: function(res, fp) {
+    if (fp.endsWith('.css') || fp.endsWith('.js')) {
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+    } else if (fp.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+  }
+}));
+
+
 
 // Error handler will be placed after all routes (moved to end of file)
 

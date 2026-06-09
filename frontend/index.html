@@ -6,6 +6,23 @@
   <title>食术·中医体质养生 - 加盟招商官网</title>
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <script>
+    // PWA 安装引导
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('install-banner')?.classList.add('show');
+    });
+    function installApp() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+      } else {
+        alert('请在浏览器菜单中选择「添加到主屏幕」');
+      }
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
