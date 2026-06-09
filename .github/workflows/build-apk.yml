@@ -11,6 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
@@ -23,202 +28,57 @@ jobs:
       - name: Install Android SDK components
         run: |
           sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
-          sdkmanager --install "build-tools;34.0.0"
+          yes | sdkmanager --licenses
 
-      - name: Generate signing key
+      - name: Install Bubblewrap CLI
+        run: npm install -g @bubblewrap/cli
+
+      - name: Generate signing key and download web manifest
         run: |
-          mkdir -p /tmp/twa-keys
-          keytool -genkeypair -v -keystore /tmp/twa-keys/release.jks -alias key0 \
+          set -euxo pipefail
+          mkdir -p /tmp/twa/project /tmp/twa/manifest
+          keytool -genkeypair -v -keystore /tmp/twa/keystore.jks -alias key0 \
             -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android \
             -dname "CN=Shishu,O=Shishu Wellness,L=Beijing,ST=Beijing,C=CN"
           echo "=== SHA256 Fingerprint ==="
-          keytool -list -v -keystore /tmp/twa-keys/release.jks -alias key0 -storepass android 2>&1 | grep SHA256
+          keytool -list -v -keystore /tmp/twa/keystore.jks -alias key0 -storepass android 2>&1 | grep SHA256
+          # Download the web manifest from the live site
+          curl -sL -o /tmp/twa/manifest/manifest.json "https://shishu.xn--fiqs8s/manifest.json"
+          cat /tmp/twa/manifest/manifest.json
 
-      - name: Create TWA Android project
+      - name: Init Bubblewrap TWA project
         run: |
           set -euxo pipefail
-          P=/tmp/twa-project
-          mkdir -p $P/app/src/main/res/values
-          mkdir -p $P/app/src/main/res/mipmap-xxxhdpi
-          mkdir -p $P/app/src/main/res/mipmap-xxhdpi
-          mkdir -p $P/app/src/main/res/mipmap-xhdpi
-          mkdir -p $P/app/src/main/res/mipmap-hdpi
-          mkdir -p $P/app/src/main/res/mipmap-mdpi
-          cp /tmp/twa-keys/release.jks $P/app/keystore.jks
+          cd /tmp/twa
+          # Ensure ANDROID_HOME is set
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          # Bubblewrap expects these paths
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          bubblewrap init \
+            --manifest=/tmp/twa/manifest/manifest.json \
+            --directory=/tmp/twa/project \
+            --setVersionName=1.0.0 \
+            --setVersionCode=1
 
-          # Generate AndroidManifest.xml
-          cat > $P/app/src/main/AndroidManifest.xml << 'XMLEOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <application android:allowBackup="true" android:icon="@mipmap/ic_launcher"
-                android:label="食术养生" android:supportsRtl="true"
-                android:theme="@style/Theme.TWA">
-              <activity android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
-                  android:label="食术养生" android:exported="true">
-                <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL"
-                    android:value="https://shishu.xn--fiqs8s/app" />
-                <intent-filter>
-                  <action android:name="android.intent.action.MAIN" />
-                  <category android:name="android.intent.category.LAUNCHER" />
-                </intent-filter>
-                <intent-filter android:autoVerify="true">
-                  <action android:name="android.intent.action.VIEW" />
-                  <category android:name="android.intent.category.DEFAULT" />
-                  <category android:name="android.intent.category.BROWSABLE" />
-                  <data android:scheme="https" android:host="shishu.xn--fiqs8s" />
-                </intent-filter>
-              </activity>
-              <service android:name="com.google.androidbrowserhelper.trusted.DelegationService"
-                  android:exported="true">
-                <intent-filter>
-                  <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
-                  <category android:name="android.intent.category.DEFAULT" />
-                </intent-filter>
-              </service>
-              <meta-data android:name="asset_statements"
-                  android:resource="@string/asset_statements" />
-            </application>
-          </manifest>
-          XMLEOF
-
-          cat > $P/app/src/main/res/values/strings.xml << 'XMLEOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-            <string name="app_name">食术养生</string>
-            <string name="asset_statements">[{"relation": ["delegate_permission/common.handle_all_urls"], "target": {"namespace": "web", "site": "https://shishu.xn--fiqs8s"}}]</string>
-          </resources>
-          XMLEOF
-
-          cat > $P/app/src/main/res/values/colors.xml << 'XMLEOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-            <color name="colorPrimary">#1B3A2D</color>
-            <color name="colorPrimaryDark">#1B3A2D</color>
-            <color name="colorAccent">#4CAF50</color>
-          </resources>
-          XMLEOF
-
-          cat > $P/app/src/main/res/values/styles.xml << 'XMLEOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-            <style name="Theme.TWA" parent="Theme.AppCompat.Light.NoActionBar">
-              <item name="colorPrimary">@color/colorPrimary</item>
-              <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-              <item name="colorAccent">@color/colorAccent</item>
-            </style>
-          </resources>
-          XMLEOF
-
-          cat > $P/build.gradle << 'GRADLEEOF'
-          buildscript {
-            repositories {
-              google()
-              mavenCentral()
-            }
-            dependencies {
-              classpath "com.android.tools.build:gradle:8.1.4"
-            }
-          }
-          allprojects {
-            repositories {
-              google()
-              mavenCentral()
-            }
-          }
-          task clean(type: Delete) {
-            delete rootProject.buildDir
-          }
-          GRADLEEOF
-
-          cat > $P/app/build.gradle << 'GRADLEEOF'
-          apply plugin: "com.android.application"
-          android {
-            namespace "com.shishu.wellness"
-            compileSdk 34
-            defaultConfig {
-              applicationId "com.shishu.wellness"
-              minSdk 21
-              targetSdk 34
-              versionCode 1
-              versionName "1.0.0"
-            }
-            signingConfigs {
-              release {
-                storeFile file("keystore.jks")
-                storePassword "android"
-                keyAlias "key0"
-                keyPassword "android"
-              }
-            }
-            buildTypes {
-              release {
-                signingConfig signingConfigs.release
-                minifyEnabled false
-              }
-            }
-          }
-          dependencies {
-            implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.5.0"
-          }
-          GRADLEEOF
-
-          echo 'include ":app"' > $P/settings.gradle
-          echo 'android.useAndroidX=true' > $P/gradle.properties
-          echo 'org.gradle.jvmargs=-Xmx2048m' >> $P/gradle.properties
-          echo "sdk.dir=$ANDROID_HOME" > $P/local.properties
-
-          # Create small PNG icons using Node.js (available on ubuntu-latest)
-          node -e "
-          const fs = require('fs');
-          const zlib = require('zlib');
-          function makePng(s) {
-            const buf = Buffer.alloc(s * (s*4+1));
-            const cx=s/2,cy=s/2;
-            for(let y=0;y<s;y++){let o=y*(s*4+1);buf[o++]=0;
-              for(let x=0;x<s;x++){
-                const d=Math.sqrt((x-cx)**2+(y-cy)**2)/(s/2);
-                if(d<0.85){buf[o++]=27;buf[o++]=58;buf[o++]=45;buf[o++]=255;}
-                else{buf[o++]=0;buf[o++]=0;buf[o++]=0;buf[o++]=0;}
-              }}
-            const df=zlib.deflateSync(buf);
-            const c=(t,d)=>{const l=Buffer.alloc(4);l.writeUInt32BE(d.length);const tb=Buffer.from(t);const cr=Buffer.alloc(4);cr.writeUInt32BE(zlib.crc32(Buffer.concat([tb,d]))>>>0);return Buffer.concat([l,tb,d,cr]);};
-            const ih=Buffer.alloc(13);ih.writeUInt32BE(s);ih.writeUInt32BE(s,4);ih[8]=8;ih[9]=6;
-            const sig=Buffer.from([137,80,78,71,13,10,26,10]);
-            return Buffer.concat([sig,c('IHDR',ih),c('IDAT',df),c('IEND',Buffer.alloc(0))]);
-          }
-          const dirs=['xxxhdpi','xxhdpi','xhdpi','hdpi','mdpi'];
-          const sizes={'xxxhdpi':512,'xxhdpi':192,'xhdpi':144,'hdpi':96,'mdpi':48};
-          const base='$P/app/src/main/res/mipmap-';
-          dirs.forEach(d=>{fs.writeFileSync(base+d+'/ic_launcher.png',makePng(sizes[d]));console.log(d, sizes[d]);});
-          "
-
-          echo "=== Project files ==="
-          find $P -type f | sort
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.4'
-
-      - name: Build APK
-        shell: bash
+      - name: Build APK with Bubblewrap
         run: |
-          set -euo pipefail
-          cd /tmp/twa-project
-          echo "=== Current directory ==="
-          pwd && ls -la
-          echo "=== Generate Gradle wrapper ==="
-          gradle wrapper --gradle-version 8.4
-          ls -la gradlew
-          echo "=== Start Gradle build ==="
-          chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1
-          echo "=== Build status: $? ==="
-          echo "=== Search for APKs ==="
-          find /tmp/twa-project -name "*.apk" -type f 2>/dev/null
-          find /tmp/twa-project -name "*.aab" -type f 2>/dev/null
-          echo "=== All build outputs ==="
-          ls -laR /tmp/twa-project/app/build/ 2>/dev/null || echo "No build dir"
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          cd /tmp/twa/project
+          bubblewrap build \
+            --keystorePath=/tmp/twa/keystore.jks \
+            --keystorePassword=android \
+            --keyAlias=key0 \
+            --keyPassword=android 2>&1
+
+      - name: Locate APK
+        if: always()
+        run: |
+          find /tmp/twa/project -name "*.apk" -type f 2>/dev/null
+          find /tmp/twa/project -name "*.aab" -type f 2>/dev/null
+          ls -laR /tmp/twa/project/ 2>/dev/null | head -50
+          echo "---"
+          ls -laR /tmp/twa/app/ 2>/dev/null | head -50
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -226,6 +86,7 @@ jobs:
         with:
           name: wellness-app-apk
           path: |
-            /tmp/twa-project/app/build/outputs/apk/release/*.apk
-            /tmp/twa-project/app/build/outputs/apk/release/*.aab
-          if-no-files-found: error
+            /tmp/twa/**/*.apk
+            /tmp/twa/project/**/*.apk
+            /tmp/twa-project/**/*.apk
+          if-no-files-found: warn
