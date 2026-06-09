@@ -17,13 +17,10 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Generate signing key
+      - name: Generate signing key and print fingerprint
         run: |
           keytool -genkeypair -v \
-            -keystore /tmp/keystore.jks \
+            -keystore app/keystore.jks \
             -alias key0 \
             -keyalg RSA \
             -keysize 2048 \
@@ -31,93 +28,46 @@ jobs:
             -storepass android \
             -keypass android \
             -dname "CN=Shishu, OU=Dev, O=Shishu Wellness, L=Beijing, ST=Beijing, C=CN"
+          echo "=== SHA256 Certificate Fingerprint (for assetlinks.json) ==="
+          keytool -list -v -keystore app/keystore.jks -alias key0 -storepass android 2>&1 | grep SHA256
 
-      - name: Print SHA256 fingerprint
+      - name: Create TWA Android project
         run: |
-          echo "=== SHA256 Certificate Fingerprint ==="
-          keytool -list -v -keystore /tmp/keystore.jks -alias key0 -storepass android 2>&1 | grep -i 'SHA256' || true
-          echo "=== Copy this fingerprint to server.js assetlinks.json ==="
+          mkdir -p app/src/main/java
+          mkdir -p app/src/main/res/{values,mipmap-hdpi,mipmap-mdpi,mipmap-xhdpi,mipmap-xxhdpi,mipmap-xxxhdpi}
 
-      - name: Build TWA APK
-        run: |
-          P=/tmp/twa-project
-          mkdir -p $P/app/src/main/java/com/shishu/wellness
-          mkdir -p $P/app/src/main/res/{values,mipmap-hdpi,mipmap-mdpi,mipmap-xhdpi,mipmap-xxhdpi,mipmap-xxxhdpi}
-          mkdir -p $P/gradle/wrapper
-
-          # Generate icons with Python PIL
-          pip3 install Pillow 2>/dev/null || true
-          python3 -c "
-          try:
-            from PIL import Image, ImageDraw, ImageFont
-            sizes = {'xxxhdpi': 512, 'xxhdpi': 192, 'xhdpi': 144, 'hdpi': 96, 'mdpi': 48}
-            for density, size in sizes.items():
-                img = Image.new('RGBA', (size, size), (27, 58, 45, 255))
-                d = ImageDraw.Draw(img)
-                try:
-                    f = ImageFont.truetype('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', size//3)
-                except:
-                    try:
-                        f = ImageFont.truetype('/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc', size//3)
-                    except:
-                        f = ImageFont.load_default()
-                text = '食'
-                bbox = d.textbbox((0,0), text, font=f)
-                w = bbox[2]-bbox[0]; h = bbox[3]-bbox[1]
-                d.text(((size-w)//2, (size-h)//2 - bbox[1]), text, fill='white', font=f)
-                path = f'$P/app/src/main/res/mipmap-{density}/ic_launcher.png'
-                img.save(path)
-                print(f'Created {path} ({size}x{size})')
-          except Exception as e:
-            print(f'PIL error: {e}, creating placeholder icons')
-            import subprocess
-            for density, size in {'xxxhdpi':512,'xxhdpi':192,'xhdpi':144,'hdpi':96,'mdpi':48}.items():
-                subprocess.run(['convert','-size',f'{size}x{size}','xc:#1B3A2D','-gravity','center',
-                    '-fill','white','-pointsize',str(size//3),'-annotate','0','S',
-                    f'$P/app/src/main/res/mipmap-{density}/ic_launcher.png'], capture_output=True)
-          " || true
-          ls -la $P/app/src/main/res/mipmap-*/ic_launcher.png || echo "Icon generation may have failed"
-
-          # build.gradle (project)
-          cat > $P/build.gradle << 'GRADLE'
-          buildscript {
-            repositories { google(); mavenCentral() }
-            dependencies { classpath 'com.android.tools.build:gradle:8.1.0' }
-          }
-          allprojects { repositories { google(); mavenCentral() } }
-          GRADLE
-
-          # build.gradle (app)
-          cat > $P/app/build.gradle << 'GRADLE'
-          android {
-            namespace 'com.shishu.wellness'
-            compileSdk 34
-            defaultConfig {
-              applicationId "com.shishu.wellness"
-              minSdk 21
-              targetSdk 34
-              versionCode 1
-              versionName "1.0.0"
-            }
-            signingConfigs {
-              release {
-                storeFile file('/tmp/keystore.jks')
-                storePassword 'android'
-                keyAlias 'key0'
-                keyPassword 'android'
-              }
-            }
-            buildTypes {
-              release { signingConfig signingConfigs.release; minifyEnabled true }
-            }
-          }
-          dependencies {
-            implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
-          }
-          GRADLE
+          # Create icons with Python
+          pip3 install Pillow -q
+          python3 << 'PYEOF'
+          from PIL import Image, ImageDraw, ImageFont
+          import os
+          sizes = {'xxxhdpi': 512, 'xxhdpi': 192, 'xhdpi': 144, 'hdpi': 96, 'mdpi': 48}
+          for density, size in sizes.items():
+              img = Image.new('RGBA', (size, size), (27, 58, 45, 255))
+              d = ImageDraw.Draw(img)
+              font_size = size // 3
+              font = None
+              for fp in ['/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
+                         '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
+                         '/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc']:
+                  if os.path.exists(fp):
+                      try:
+                          font = ImageFont.truetype(fp, font_size)
+                          break
+                      except: pass
+              if not font:
+                  font = ImageFont.load_default(size=font_size)
+              text = '食'
+              bbox = d.textbbox((0,0), text, font=font)
+              w = bbox[2]-bbox[0]; h = bbox[3]-bbox[1]
+              d.text(((size-w)//2, (size-h)//2 - bbox[1]), text, fill='white', font=font)
+              path = f'app/src/main/res/mipmap-{density}/ic_launcher.png'
+              img.save(path)
+              print(f'Created {path} ({size}x{size})')
+          PYEOF
 
           # AndroidManifest.xml
-          cat > $P/app/src/main/AndroidManifest.xml << 'XML'
+          cat > app/src/main/AndroidManifest.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <application
@@ -156,8 +106,7 @@ jobs:
           </manifest>
           XML
 
-          # Resource files
-          cat > $P/app/src/main/res/values/strings.xml << 'XML'
+          cat > app/src/main/res/values/strings.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
             <string name="app_name">食术养生</string>
@@ -165,7 +114,7 @@ jobs:
           </resources>
           XML
 
-          cat > $P/app/src/main/res/values/colors.xml << 'XML'
+          cat > app/src/main/res/values/colors.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
             <color name="colorPrimary">#1B3A2D</color>
@@ -174,7 +123,7 @@ jobs:
           </resources>
           XML
 
-          cat > $P/app/src/main/res/values/styles.xml << 'XML'
+          cat > app/src/main/res/values/styles.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
             <style name="Theme.TWA" parent="Theme.AppCompat.Light.NoActionBar">
@@ -185,21 +134,84 @@ jobs:
           </resources>
           XML
 
-          echo 'include ":app"' > $P/settings.gradle
-          echo -e 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m' > $P/gradle.properties
+          # build.gradle (project level)
+          cat > build.gradle << 'GRADLE'
+          buildscript {
+            repositories { google(); mavenCentral() }
+            dependencies { classpath 'com.android.tools.build:gradle:8.1.4' }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          GRADLE
 
-          # Build
-          cd $P
-          gradle wrapper --gradle-version 8.0 2>&1
-          chmod +x gradlew
-          ./gradlew assembleRelease 2>&1
-          echo "=== APK files ==="
-          find . -name '*.apk' -type f 2>/dev/null
+          # build.gradle (app level)
+          cat > app/build.gradle << 'GRADLE'
+          plugins {
+            id 'com.android.application'
+          }
+          android {
+            namespace 'com.shishu.wellness'
+            compileSdk 34
+            defaultConfig {
+              applicationId "com.shishu.wellness"
+              minSdk 21
+              targetSdk 34
+              versionCode 1
+              versionName "1.0.0"
+            }
+            signingConfigs {
+              release {
+                storeFile file('keystore.jks')
+                storePassword 'android'
+                keyAlias 'key0'
+                keyPassword 'android'
+              }
+            }
+            buildTypes {
+              release { signingConfig signingConfigs.release; minifyEnabled true }
+            }
+          }
+          dependencies {
+            implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+          }
+          GRADLE
+
+          # settings.gradle
+          echo 'include ":app"' > settings.gradle
+
+          # gradle.properties
+          cat > gradle.properties << 'PROPS'
+          android.useAndroidX=true
+          org.gradle.jvmargs=-Xmx2048m
+          PROPS
+
+          # gradle wrapper
+          mkdir -p gradle/wrapper
+          cat > gradle/wrapper/gradle-wrapper.properties << 'WRAPPER'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.0-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          WRAPPER
+
+          echo "=== Project structure ==="
+          find . -type f | grep -v '.jks' | head -20
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.0'
+
+      - name: Build Release APK
+        run: |
+          gradle assembleRelease 2>&1
+          echo "=== APK output ==="
+          find . -name '*.apk' -type f
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: wellness-app-apk
-          path: /tmp/twa-project/app/build/outputs/apk/release/
-          if-no-files-found: error
+          path: app/build/outputs/apk/release/
+          if-no-files-found: warn
