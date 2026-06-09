@@ -18,28 +18,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install PWABuilder CLI
-        run: npm install -g @pwabuilder/cli
-      - name: Generate icons
+      - name: Generate icons and setup
         run: |
           mkdir -p /tmp/pwa-icons
-          python3 -c "
-import struct, zlib
-def png(sz,n):
-    r=b''
-    for y in range(sz):
-        r+=b'\x00'
-        for x in range(sz):
-            r+=b'\x1b\x3a\x2d\xff'
-    def ck(tag,d):
-        c=struct.pack('>I',len(d))+tag+d
-        return c+struct.pack('>I',zlib.crc32(c[4:])&0xffffffff)
-    ihdr=struct.pack('>IIBBBBB',sz,sz,8,6,0,0,0)
-    png=b'\x89PNG\r\n\x1a\n'+ck(b'IHDR',ihdr)+ck(b'IDAT',zlib.compress(r))+ck(b'IEND',b'')
-    open(n,'wb').write(png)
-png(512,'/tmp/pwa-icons/icon-512.png')
-png(192,'/tmp/pwa-icons/icon-192.png')
-"
+          # Create a simple 1-pixel PNG as placeholder icon
+          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x02\x00\x00\x00\x02\x00\x08\x06\x00\x00\x00\x1b\x83\x39\x2f\x00\x00\x00\x01sRGB\x00\xae\xce\x1c\xe9\x00\x00\x00\x04gAMA\x00\x00\xb1\x8f\x0b\xfca\x05\x00\x00\x00\x0cIDAT\x18\x57c\xf8\xff\xff?\x00\x05\xfe\x02\xfe\x93\x94qk\x00\x00\x00\x00IEND\xae\x42\x60\x82' > /tmp/pwa-icons/icon-512.png
+          printf '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\xc0\x00\x00\x00\xc0\x08\x06\x00\x00\x00\x52\xdc\xf1\xb6\x00\x00\x00\x01sRGB\x00\xae\xce\x1c\xe9\x00\x00\x00\x04gAMA\x00\x00\xb1\x8f\x0b\xfca\x05\x00\x00\x00\x0cIDAT\x18\x57c\xf8\xff\xff?\x00\x05\xfe\x02\xfe\x93\x94qk\x00\x00\x00\x00IEND\xae\x42\x60\x82' > /tmp/pwa-icons/icon-192.png
           echo 'Icons generated'
       - name: Setup PWA files
         run: |
@@ -57,7 +41,7 @@ png(192,'/tmp/pwa-icons/icon-192.png')
             --jvm=/usr/lib/jvm/temurin-17-jdk-amd64/bin/java \
             --androidSdkPath=$ANDROID_HOME \
             --signingMode=none \
-            2>&1 || echo 'Bubblewrap init had issues (may still work)'
+            2>&1 || echo 'Bubblewrap init had issues'
           kill %1 2>/dev/null || true
       - name: Build APK
         run: |
@@ -65,11 +49,9 @@ png(192,'/tmp/pwa-icons/icon-192.png')
             cd /tmp/app-output
             chmod +x gradlew
             ./gradlew assembleRelease 2>&1 || true
-            find . -name '*.apk' -type f 2>/dev/null
           else
-            echo 'No gradlew found - trying bubblewrap build'
-            cd /tmp/app-output
-            npx @bubblewrap/cli build 2>&1 || true
+            echo 'No gradlew found'
+            ls /tmp/app-output/ 2>/dev/null || true
           fi
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -78,6 +60,5 @@ png(192,'/tmp/pwa-icons/icon-192.png')
           path: |
             /tmp/app-output/**/*.apk
             /tmp/app-output/app-release.apk
-            /tmp/app-output/app/build/outputs/apk/**/*.apk
           if-no-files-found: warn
           retention-days: 30
