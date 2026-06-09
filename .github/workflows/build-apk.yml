@@ -17,198 +17,174 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install Android SDK & Build Tools
+      - name: Install Android SDK
         run: |
-          set -ex
           ANDROID_SDK_ROOT=/tmp/android-sdk
           mkdir -p $ANDROID_SDK_ROOT
-          
-          # Download command-line tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip
           unzip -q /tmp/cmdline-tools.zip -d $ANDROID_SDK_ROOT/
           mkdir -p $ANDROID_SDK_ROOT/latest
           mv $ANDROID_SDK_ROOT/cmdline-tools/* $ANDROID_SDK_ROOT/latest/ 2>/dev/null || true
-          
           export ANDROID_HOME=$ANDROID_SDK_ROOT
           export PATH=$PATH:$ANDROID_SDK_ROOT/latest/bin
-          
-          # Accept licenses and install required components
           yes | sdkmanager --licenses 2>/dev/null || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" 2>&1 | tail -5
-          
-          # Verify
-          sdkmanager --list_installed 2>/dev/null | grep -E "platforms|build-tools" || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
 
       - name: Generate signing key
         run: |
-          set -ex
-          mkdir -p /tmp/twa-keystore
-          keytool -genkeypair -v \
-            -keystore /tmp/twa-keystore/release.jks \
-            -alias key0 \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass android \
-            -keypass android \
-            -dname "CN=Shishu, OU=Dev, O=Shishu Wellness, L=Beijing, ST=Beijing, C=CN"
-          echo "=== SHA256 Fingerprint (for Digital Asset Links) ==="
-          keytool -list -v -keystore /tmp/twa-keystore/release.jks -alias key0 -storepass android 2>&1 | grep SHA256
+          mkdir -p /tmp/twa-keys
+          keytool -genkeypair -v -keystore /tmp/twa-keys/release.jks -alias key0 -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Shishu,O=Shishu Wellness,L=Beijing,ST=Beijing,C=CN"
+          keytool -list -v -keystore /tmp/twa-keys/release.jks -alias key0 -storepass android 2>&1 | grep SHA256
 
-      - name: Build TWA with Bubblewrap CLI
+      - name: Create TWA project files
         run: |
-          set -ex
-          npm install -g @nickvdp/nickvdp 2>/dev/null || true
-          npm install -g @nickvdp/nickvdp/cli 2>/dev/null || true
-          npm install -g bubblewrap 2>&1 | tail -3
-          bubblewrap --version 2>&1 || echo "bubblewrap not found"
-          
-          # Start local server for manifest
-          cd $GITHUB_WORKSPACE
-          node -e "
-          const http = require('http'), fs = require('fs'), path = require('path');
-          const dir = path.join(__dirname, 'frontend');
-          http.createServer((req, res) => {
-            let fp = path.join(dir, req.url === '/' ? 'index.html' : req.url);
-            if (!fs.existsSync(fp)) { res.writeHead(404); res.end('Not found'); return; }
-            let ext = path.extname(fp);
-            let ct = {'json':'application/json','html':'text/html','js':'text/javascript','css':'text/css','png':'image/png'}[ext.slice(1)] || 'application/octet-stream';
-            res.writeHead(200, {'Access-Control-Allow-Origin':'*','Content-Type':ct});
-            fs.createReadStream(fp).pipe(res);
-          }).listen(9876);
-          console.log('Server on :9876');
-          " &
-          sleep 2
-          
-          # Test manifest
-          echo "=== Manifest test ==="
-          curl -s http://localhost:9876/manifest.json | head -10 || echo "Manifest not accessible"
-          
-          # Try bubblewrap
-          mkdir -p /tmp/twa-project && cd /tmp/twa-project
-          bubblewrap init --manifest=http://localhost:9876/manifest.json \
-            --directory=. \
-            --androidPackageId=com.shishu.wellness \
-            --appVersion=1.0.0 \
-            --appVersionCode=1 \
-            --backgroundColor=#1B3A2D \
-            --themeColor=#1B3A2D \
-            --signingKeyPath=/tmp/twa-keystore/release.jks \
-            --signingKeyAlias=key0 \
-            --signingKeyStorepass=android \
-            --signingKeyKeypass=android \
-            --enableNotifications=false \
-            --browserLauncher=chrome 2>&1 || echo "=== Bubblewrap init FAILED ==="
-          
-          if [ -f gradlew ]; then
-            echo "=== Bubblewrap project ready, building ==="
-            chmod +x gradlew
-            ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 || echo "=== Gradle build FAILED ==="
-          else
-            echo "=== No Bubblewrap project, building manually ==="
-            # Manual TWA build
-            P=/tmp/manual-twa
-            mkdir -p $P/app/src/main/{java,res/values,res/mipmap-{hdpi,mdpi,xhdpi,xxhdpi,xxxhdpi}}
-            cp /tmp/twa-keystore/release.jks $P/app/keystore.jks
-            
-            cat > $P/app/src/main/AndroidManifest.xml << 'XML'
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-  <application android:allowBackup="true" android:icon="@mipmap/ic_launcher" android:label="食术养生" android:supportsRtl="true" android:theme="@style/Theme.TWA">
-    <activity android:name="com.google.androidbrowserhelper.trusted.LauncherActivity" android:label="食术养生" android:exported="true">
-      <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL" android:value="https://shishu.xn--fiqs8s/app" />
-      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
-      <intent-filter android:autoVerify="true"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https" android:host="shishu.xn--fiqs8s"/></intent-filter>
-    </activity>
-    <service android:name="com.google.androidbrowserhelper.trusted.DelegationService" android:exported="true">
-      <intent-filter><action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE"/><category android:name="android.intent.category.DEFAULT"/></intent-filter>
-    </service>
-    <meta-data android:name="asset_statements" android:resource="@string/asset_statements"/>
-  </application>
-</manifest>
-XML
-            
-            cat > $P/app/src/main/res/values/strings.xml << 'XML'
-<?xml version="1.0" encoding="utf-8"?><resources><string name="app_name">食术养生</string><string name="asset_statements">[{\&quot;relation\&quot;: [\&quot;delegate_permission/common.handle_all_urls\&quot;], \&quot;target\&quot;: {\&quot;namespace\&quot;: \&quot;web\&quot;, \&quot;site\&quot;: \&quot;https://shishu.xn--fiqs8s\&quot;}}]</string></resources>
-XML
-            
-            cat > $P/app/src/main/res/values/colors.xml << 'XML'
-<?xml version="1.0" encoding="utf-8"?><resources><color name="colorPrimary">#1B3A2D</color><color name="colorPrimaryDark">#1B3A2D</color><color name="colorAccent">#4CAF50</color></resources>
-XML
-            
-            cat > $P/app/src/main/res/values/styles.xml << 'XML'
-<?xml version="1.0" encoding="utf-8"?><resources><style name="Theme.TWA" parent="Theme.AppCompat.Light.NoActionBar"><item name="colorPrimary">@color/colorPrimary</item><item name="colorPrimaryDark">@color/colorPrimaryDark</item><item name="colorAccent">@color/colorAccent</item></style></resources>
-XML
-            
-            cat > $P/build.gradle << 'GRADLE'
-buildscript { repositories { google(); mavenCentral() } dependencies { classpath 'com.android.tools.build:gradle:8.1.4' } }
-allprojects { repositories { google(); mavenCentral() } }
-GRADLE
-            
-            cat > $P/app/build.gradle << 'GRADLE'
-apply plugin: 'com.android.application'
-android {
-  namespace 'com.shishu.wellness'
-  compileSdk 34
-  defaultConfig { applicationId "com.shishu.wellness"; minSdk 21; targetSdk 34; versionCode 1; versionName "1.0.0" }
-  signingConfigs { release { storeFile file('keystore.jks'); storePassword 'android'; keyAlias 'key0'; keyPassword 'android' } }
-  buildTypes { release { signingConfig signingConfigs.release; minifyEnabled true } }
-}
-dependencies { implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0' }
-GRADLE
-            
-            echo 'include ":app"' > $P/settings.gradle
-            printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m\n' > $P/gradle.properties
-            echo "sdk.dir=$ANDROID_HOME" > $P/local.properties
-            
-            # Generate icons
-            pip3 install Pillow -q
-            python3 -c "
-from PIL import Image, ImageDraw, ImageFont
-sizes = {'xxxhdpi': 512, 'xxhdpi': 192, 'xhdpi': 144, 'hdpi': 96, 'mdpi': 48}
-base = '$P/app/src/main/res'
-for d, s in sizes.items():
-    img = Image.new('RGBA', (s, s), (27, 58, 45, 255))
-    d2 = ImageDraw.Draw(img)
-    try: f = ImageFont.truetype('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc', s//3)
-    except: f = ImageFont.load_default(size=s//3)
-    bbox = d2.textbbox((0,0), 'S', font=f)
-    w, h = bbox[2]-bbox[0], bbox[3]-bbox[1]
-    d2.text(((s-w)//2, (s-h)//2 - bbox[1]), 'S', fill='white', font=f)
-    img.save(f'{base}/mipmap-{d}/ic_launcher.png')
-" 2>&1 || echo "Icon generation failed, creating placeholder"
-            
-            # Create placeholder icons if Pillow failed
-            for density in xxxhdpi xxhdpi xhdpi hdpi mdpi; do
-              if [ ! -f $P/app/src/main/res/mipmap-$density/ic_launcher.png ]; then
-                convert -size 48x48 xc:'#1B3A2D' $P/app/src/main/res/mipmap-$density/ic_launcher.png 2>/dev/null || \
-                python3 -c "from PIL import Image; Image.new('RGBA',(48,48),(27,58,45,255)).save('$P/app/src/main/res/mipmap-$density/ic_launcher.png')" 2>/dev/null || true
-              fi
-            done
-            
-            cd $P
-            echo "=== Building with Gradle ==="
-            gradle wrapper --gradle-version 8.4 2>&1 | tail -5
-            chmod +x gradlew
-            ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tail -50
-          fi
-          
-          echo "=== Looking for APKs ==="
-          find /tmp -name '*.apk' -type f 2>/dev/null || echo "No APKs found"
+          P=/tmp/twa-project
+          mkdir -p $P/app/src/main/res/values
+          mkdir -p $P/app/src/main/res/mipmap-hdpi
+          mkdir -p $P/app/src/main/res/mipmap-mdpi
+          mkdir -p $P/app/src/main/res/mipmap-xhdpi
+          mkdir -p $P/app/src/main/res/mipmap-xxhdpi
+          mkdir -p $P/app/src/main/res/mipmap-xxxhdpi
+          cp /tmp/twa-keys/release.jks $P/app/keystore.jks
+
+          # Write all project files using base64 to avoid YAML escaping issues
+          node -e '
+          const fs = require("fs");
+          const P = "/tmp/twa-project";
+
+          fs.writeFileSync(P + "/app/src/main/AndroidManifest.xml", `<?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <application android:allowBackup="true" android:icon="@mipmap/ic_launcher" android:label="食术养生" android:supportsRtl="true" android:theme="@style/Theme.TWA">
+              <activity android:name="com.google.androidbrowserhelper.trusted.LauncherActivity" android:label="食术养生" android:exported="true">
+                <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL" android:value="https://shishu.xn--fiqs8s/app" />
+                <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+                <intent-filter android:autoVerify="true"><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="https" android:host="shishu.xn--fiqs8s"/></intent-filter>
+              </activity>
+              <service android:name="com.google.androidbrowserhelper.trusted.DelegationService" android:exported="true">
+                <intent-filter><action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE"/><category android:name="android.intent.category.DEFAULT"/></intent-filter>
+              </service>
+              <meta-data android:name="asset_statements" android:resource="@string/asset_statements"/>
+            </application>
+          </manifest>`);
+
+          fs.writeFileSync(P + "/app/src/main/res/values/strings.xml", `<?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <string name="app_name">食术养生</string>
+            <string name="asset_statements">[{"relation": ["delegate_permission/common.handle_all_urls"], "target": {"namespace": "web", "site": "https://shishu.xn--fiqs8s"}}]</string>
+          </resources>`);
+
+          fs.writeFileSync(P + "/app/src/main/res/values/colors.xml", `<?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <color name="colorPrimary">#1B3A2D</color>
+            <color name="colorPrimaryDark">#1B3A2D</color>
+            <color name="colorAccent">#4CAF50</color>
+          </resources>`);
+
+          fs.writeFileSync(P + "/app/src/main/res/values/styles.xml", `<?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <style name="Theme.TWA" parent="Theme.AppCompat.Light.NoActionBar">
+              <item name="colorPrimary">@color/colorPrimary</item>
+              <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+              <item name="colorAccent">@color/colorAccent</item>
+            </style>
+          </resources>`);
+
+          fs.writeFileSync(P + "/build.gradle", `buildscript {
+            repositories { google(); mavenCentral() }
+            dependencies { classpath "com.android.tools.build:gradle:8.1.4" }
+          }
+          allprojects { repositories { google(); mavenCentral() } }`);
+
+          fs.writeFileSync(P + "/app/build.gradle", `apply plugin: "com.android.application"
+          android {
+            namespace "com.shishu.wellness"
+            compileSdk 34
+            defaultConfig {
+              applicationId "com.shishu.wellness"
+              minSdk 21
+              targetSdk 34
+              versionCode 1
+              versionName "1.0.0"
+            }
+            signingConfigs {
+              release {
+                storeFile file("keystore.jks")
+                storePassword "android"
+                keyAlias "key0"
+                keyPassword "android"
+              }
+            }
+            buildTypes {
+              release {
+                signingConfig signingConfigs.release
+                minifyEnabled true
+              }
+            }
+          }
+          dependencies {
+            implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.5.0"
+          }`);
+
+          fs.writeFileSync(P + "/settings.gradle", "include \":app\"");
+          fs.writeFileSync(P + "/gradle.properties", "android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m");
+          fs.writeFileSync(P + "/local.properties", "sdk.dir=" + process.env.ANDROID_HOME);
+
+          // Generate PNG icons programmatically
+          const { createCanvas } = (() => { try { return require("canvas"); } catch(e) { return { createCanvas: null }; } })();
+
+          function writePNG(path, size) {
+            // Pure Node.js PNG generation (no dependencies)
+            const zlib = require("zlib");
+            const raw = Buffer.alloc((size * 4 + 1) * size);
+            for (let y = 0; y < size; y++) {
+              raw[y * (size * 4 + 1)] = 0; // filter byte
+              for (let x = 0; x < size; x++) {
+                const off = y * (size * 4 + 1) + 1 + x * 4;
+                raw[off] = 27; raw[off+1] = 58; raw[off+2] = 45; raw[off+3] = 255; // #1B3A2D
+              }
+            }
+            const deflated = zlib.deflateSync(raw);
+            const buf = Buffer.alloc(8 + 12 + 13 + 12 + deflated.length + 12 + 0);
+            // PNG signature
+            buf.write("\x89PNG\r\n\x1a\n", 0);
+            let pos = 8;
+            function writeChunk(type, data) {
+              buf.writeUInt32BE(data.length, pos); pos += 4;
+              buf.write(type, pos); pos += 4;
+              data.copy(buf, pos); pos += data.length;
+              const crc = require("zlib").crc32(Buffer.concat([Buffer.from(type), data]));
+              buf.writeUInt32BE(crc >>> 0, pos); pos += 4;
+            }
+            const ihdr = Buffer.alloc(13);
+            ihdr.writeUInt32BE(size, 0); ihdr.writeUInt32BE(size, 4);
+            ihdr[8] = 8; ihdr[9] = 6; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
+            writeChunk("IHDR", ihdr);
+            writeChunk("IDAT", deflated);
+            writeChunk("IEND", Buffer.alloc(0));
+            fs.writeFileSync(path, buf.slice(0, pos));
+          }
+
+          const sizes = { "xxxhdpi": 512, "xxhdpi": 192, "xhdpi": 144, "hdpi": 96, "mdpi": 48 };
+          for (const [density, size] of Object.entries(sizes)) {
+            writePNG(`${P}/app/src/main/res/mipmap-${density}/ic_launcher.png`, size);
+          }
+
+          console.log("Project files created successfully");
+          '
+
+      - name: Build APK with Gradle
+        run: |
+          cd /tmp/twa-project
+          gradle wrapper --gradle-version 8.4
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tail -80
+          find /tmp/twa-project -name "*.apk" -type f
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: wellness-app-apk
-          path: |
-            /tmp/twa-project/app/build/outputs/apk/
-            /tmp/manual-twa/app/build/outputs/apk/
+          path: /tmp/twa-project/app/build/outputs/apk/
           if-no-files-found: warn
