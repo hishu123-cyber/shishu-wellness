@@ -130,10 +130,7 @@ app.use(express.static(path.join(__dirname, 'frontend'), {
   }
 }));
 
-app.use(function(err, req, res, next) {
-  log.error('支付回调错误', err.message);
-  res.status(500).json({ detail: err.message });
-});
+// Error handler will be placed after all routes (moved to end of file)
 
 // ── 微信支付 ──
 
@@ -1282,6 +1279,12 @@ async function start() {
         log.request(req, res, Date.now() - start);
       });
       next();
+    });
+
+    // Global error handler (must be after all routes)
+    app.use(function(err, req, res, next) {
+      log.error('请求处理错误', err.message);
+      res.status(500).json({ detail: err.message });
     });
 
     app.listen(PORT, '0.0.0.0', function() {

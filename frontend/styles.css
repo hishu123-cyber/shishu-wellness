@@ -345,3 +345,52 @@ input, textarea, button { font-family: inherit; font-size: inherit; }
 .tea-tip-tag { font-size: 10px; color: #fff; background: var(--green); display: inline-block; padding: 1px 8px; border-radius: 8px; margin-bottom: 6px; }
 .tea-tip-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
 .tea-tip-category { font-size: 12px; color: var(--text2); }
+
+/* Tea brew page */
+.tea-brew-page { text-align: center; padding: 40px 20px; }
+.tea-brew-name { font-size: 20px; font-weight: 600; margin-bottom: 8px; }
+.tea-brew-temp { font-size: 14px; color: var(--text2); margin-bottom: 24px; }
+.tea-brew-timer { font-size: 64px; font-weight: 700; color: var(--green); margin: 20px 0; }
+.tea-brew-status { font-size: 16px; color: var(--text2); margin-bottom: 16px; }
+.tea-brew-progress { width: 80%; height: 8px; background: var(--border); border-radius: 4px; margin: 0 auto 24px; overflow: hidden; }
+.tea-brew-bar { height: 100%; background: var(--green); border-radius: 4px; transition: width 1s linear; }
+.tea-brew-btns { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+
+/* Tea review page */
+.tea-review-page { text-align: center; padding: 40px 20px; }
+.tea-score-btns { display: flex; gap: 12px; justify-content: center; margin: 12px 0; }
+.tea-score-btn { font-size: 32px; padding: 8px; border: 2px solid transparent; border-radius: 12px; background: transparent; cursor: pointer; transition: all .2s; }
+.tea-score-btn.selected { border-color: var(--green); background: var(--green-light); transform: scale(1.15); }
+
+/* TCM doctor card */
+.tcm-doctor { position: relative; }
+
+/* Shop specific */
+.shop-cats { display: flex; gap: 6px; overflow-x: auto; padding: 8px 16px; white-space: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.shop-cats::-webkit-scrollbar { display: none; }
+.shop-cat-tag { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: 13px; cursor: pointer; flex-shrink: 0; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); }
+.shop-cat-tag.active { background: var(--green); color: #fff; border-color: var(--green); }
+.shop-card { background: var(--card-bg); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+
+/* Form select */
+.form-select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card-bg); color: var(--text); outline: none; font-size: 14px; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+.form-select:focus { border-color: var(--green); }
+
+/* Dark theme fixes */
+[data-theme="dark"] .auth-form h2 { color: var(--green); }
+[data-theme="dark"] .pill-green { background: #1B3A2D; color: #66BB6A; }
+[data-theme="dark"] .pill-orange { background: #3E2723; color: #FFB74D; }
+[data-theme="dark"] .pill-blue { background: #1A237E; color: #64B5F6; }
+[data-theme="dark"] .tea-badge { background: linear-gradient(135deg, #3E2723, #4E342E); }
+[data-theme="dark"] .tea-badge-name { color: #FFB74D; }
+[data-theme="dark"] .tea-season-tip { background: #1B3A2D; }
+[data-theme="dark"] .recipe-tag { background: #1B3A2D; color: #66BB6A; }
+[data-theme="dark"] .auth-error { background: #3E2723; }
+[data-theme="dark"] .score-options button { background: var(--card-bg); color: var(--text2); }
+[data-theme="dark"] .tea-time-item { background: var(--card-bg); }
+[data-theme="dark"] .tea-stat-card { background: var(--card-bg); }
+[data-theme="dark"] .tea-kn-item { background: var(--card-bg); }
+[data-theme="dark"] .tea-daily-tip { background: var(--card-bg); }
+[data-theme="dark"] .tea-season-card { background: var(--card-bg); }
+[data-theme="dark"] .question-item { background: var(--card-bg); }
+[data-theme="dark"] .category-filters button { background: var(--card-bg); color: var(--text2); }

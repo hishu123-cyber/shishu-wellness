@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (TWA)
 
 on:
   push:
@@ -10,43 +10,191 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup tools
+
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-      - uses: android-actions/setup-android@v3
-      - uses: actions/setup-node@v4
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install Bubblewrap
-        run: npm install -g @bubblewrap/cli
-      - name: Generate PWA icons
+
+      - name: Generate icons
         run: |
-          mkdir -p /tmp/pwa-icons
-          python3 scripts/make_icons.py /tmp/pwa-icons/icon-512.png /tmp/pwa-icons/icon-192.png
-          ls -la /tmp/pwa-icons/
-      - name: Setup PWA
+          mkdir -p frontend/assets
+          python3 scripts/make_icons.py frontend/assets/icon-512.png frontend/assets/icon-192.png
+          ls -la frontend/assets/icon-*.png
+
+      - name: Generate signing key
         run: |
-          mkdir -p /tmp/pwa-build
-          cp -r frontend/* /tmp/pwa-build/
-          cp /tmp/pwa-icons/* /tmp/pwa-build/
-          cd /tmp/pwa-build
-          python3 -m http.server 9999 &
-          sleep 2
-          npx @bubblewrap/cli init --manifest=http://127.0.0.1:9999/manifest.json --directory=/tmp/app-output 2>&1 || true
-          kill %1 2>/dev/null || true
-      - name: Build APK
+          keytool -genkeypair -v \
+            -keystore /tmp/keystore.jks \
+            -alias key0 \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Shishu, OU=Dev, O=Shishu Wellness, L=Beijing, ST=Beijing, C=CN"
+
+      - name: Build TWA with Bubblewrap
         run: |
-          if [ -f /tmp/app-output/gradlew ]; then
-            cd /tmp/app-output
+          npm install -g @nickvdp/nickvdp 2>/dev/null || true
+          npx @nickvdp/nickvdp init \
+            --manifest=https://shishu.xn--fiqs8s/manifest.json \
+            --directory=/tmp/twa-project 2>&1 || true
+          
+          # If init succeeded, try building
+          if [ -f /tmp/twa-project/gradlew ]; then
+            cd /tmp/twa-project
             chmod +x gradlew
             ./gradlew assembleRelease 2>&1 || true
           fi
-          find /tmp -name '*.apk' -type f 2>/dev/null || echo "No APK found"
-      - name: Upload artifact
+          
+          find /tmp -name '*.apk' -type f 2>/dev/null || echo "No APK from Bubblewrap, trying manual TWA..."
+
+      - name: Manual TWA build (fallback)
+        if: always()
+        run: |
+          # Check if APK already exists
+          if find /tmp -name '*.apk' -type f 2>/dev/null | grep -q apk; then
+            echo "APK already built, skipping manual build"
+            exit 0
+          fi
+
+          # Create minimal TWA project using androidbrowserhelper library
+          P=/tmp/manual-twa
+          mkdir -p $P/app/src/main/java/com/shishu/wellness
+          mkdir -p $P/app/src/main/res/{values,mipmap-hdpi,mipmap-mdpi,mipmap-xhdpi,mipmap-xxhdpi,mipmap-xxxhdpi}
+          mkdir -p $P/gradle/wrapper
+
+          # Copy icons
+          cp frontend/assets/icon-512.png $P/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          cp frontend/assets/icon-192.png $P/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+
+          cat > $P/build.gradle << 'GRADLE'
+          buildscript {
+            repositories { google(); mavenCentral() }
+            dependencies { classpath 'com.android.tools.build:gradle:8.1.0' }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          GRADLE
+
+          cat > $P/app/build.gradle << 'GRADLE'
+          android {
+            compileSdk 34
+            defaultConfig {
+              applicationId "com.shishu.wellness"
+              minSdk 21
+              targetSdk 34
+              versionCode 1
+              versionName "1.0.0"
+            }
+            signingConfigs {
+              release {
+                storeFile file('/tmp/keystore.jks')
+                storePassword 'android'
+                keyAlias 'key0'
+                keyPassword 'android'
+              }
+            }
+            buildTypes {
+              release { signingConfig signingConfigs.release; minifyEnabled true }
+            }
+          }
+          dependencies {
+            implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+          }
+          GRADLE
+
+          cat > $P/app/src/main/AndroidManifest.xml << 'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+            package="com.shishu.wellness">
+            <application
+              android:allowBackup="true"
+              android:icon="@mipmap/ic_launcher"
+              android:label="食术养生"
+              android:supportsRtl="true"
+              android:theme="@style/Theme.TWA">
+              <activity android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+                android:label="食术养生"
+                android:exported="true">
+                <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL"
+                  android:value="https://shishu.xn--fiqs8s/app" />
+                <meta-data android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
+                  android:resource="@color/colorPrimary" />
+                <intent-filter>
+                  <action android:name="android.intent.action.MAIN" />
+                  <category android:name="android.intent.category.LAUNCHER" />
+                </intent-filter>
+                <intent-filter android:autoVerify="true">
+                  <action android:name="android.intent.action.VIEW" />
+                  <category android:name="android.intent.category.DEFAULT" />
+                  <category android:name="android.intent.category.BROWSABLE" />
+                  <data android:scheme="https" android:host="shishu.xn--fiqs8s" />
+                </intent-filter>
+              </activity>
+              <service android:name="com.google.androidbrowserhelper.trusted.DelegationService"
+                android:exported="true">
+                <intent-filter>
+                  <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
+                  <category android:name="android.intent.category.DEFAULT" />
+                </intent-filter>
+              </service>
+              <meta-data android:name="asset_statements" android:resource="@string/asset_statements" />
+            </application>
+          </manifest>
+          XML
+
+          cat > $P/app/src/main/res/values/strings.xml << 'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <string name="app_name">食术养生</string>
+            <string name="asset_statements">[{"relation": ["delegate_permission/common.handle_all_urls"], "target": {"namespace": "web", "site": "https://shishu.xn--fiqs8s"}}]</string>
+          </resources>
+          XML
+
+          cat > $P/app/src/main/res/values/colors.xml << 'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <color name="colorPrimary">#1B3A2D</color>
+            <color name="colorPrimaryDark">#1B3A2D</color>
+            <color name="colorAccent">#4CAF50</color>
+          </resources>
+          XML
+
+          cat > $P/app/src/main/res/values/styles.xml << 'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+            <style name="Theme.TWA" parent="Theme.AppCompat.Light.NoActionBar">
+              <item name="colorPrimary">@color/colorPrimary</item>
+              <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+              <item name="colorAccent">@color/colorAccent</item>
+            </style>
+          </resources>
+          XML
+
+          echo 'include ":app"' > $P/settings.gradle
+          echo -e 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m' > $P/gradle.properties
+
+          cd $P
+          gradle wrapper --gradle-version 8.0 2>&1
+          chmod +x gradlew
+          ./gradlew assembleRelease 2>&1 || true
+          find . -name '*.apk' -type f 2>/dev/null
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: wellness-app-apk
-          path: /tmp/**/*.apk
+          path: |
+            /tmp/**/*.apk
           if-no-files-found: warn

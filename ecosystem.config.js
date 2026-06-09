@@ -6,7 +6,7 @@ module.exports = {
       cwd: __dirname,
       env: {
         NODE_ENV: 'production',
-        WELLNESS_SECRET: 'wellness-secret-key'  // 生产环境请替换
+        WELLNESS_SECRET: '7519ab413fb10f9e4c224a223bc2fc0f8567d77884765ffd59aa02ad3d262bb2'
       },
       max_memory_restart: '300M',
       error_file: 'logs/err.log',
