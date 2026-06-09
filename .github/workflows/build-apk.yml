@@ -168,10 +168,14 @@ jobs:
           echo "=== APK files ==="
           find /tmp/twa-project -name "*.apk" -type f
 
+      - name: Locate APK
+        if: always()
+        run: find /tmp/twa-project -name "*.apk" -type f 2>/dev/null || echo "No APK found"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: wellness-app-apk
-          path: /tmp/twa-project/app/build/outputs/apk/
+          path: /tmp/twa-project/app/build/outputs/
           if-no-files-found: warn
