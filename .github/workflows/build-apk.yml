@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Setup tools
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -23,9 +24,8 @@ jobs:
       - name: Generate PWA icons
         run: |
           mkdir -p /tmp/pwa-icons
-          python3 -c 'import struct,zlib;f=lambda s,n:open(n,"wb").write(b"\x89PNG\r\n\x1a\n"+b"".join(struct.pack(">I",len(d))+(t+d)+struct.pack(">I",zlib.crc32(t+d)&0xffffffff) for t,d in[(b"IHDR",struct.pack(">IIBBBBB",s,s,8,6,0,0,0)),(b"IDAT",zlib.compress(b"\x00"+b"\x1b\x3a\x2d\xff"*s*s)),(b"IEND",b"")]));f(512,"/tmp/pwa-icons/icon-512.png");f(192,"/tmp/pwa-icons/icon-192.png")'
+          python3 scripts/make_icons.py /tmp/pwa-icons/icon-512.png /tmp/pwa-icons/icon-192.png
           ls -la /tmp/pwa-icons/
-          echo done
       - name: Setup PWA
         run: |
           mkdir -p /tmp/pwa-build
@@ -34,21 +34,16 @@ jobs:
           cd /tmp/pwa-build
           python3 -m http.server 9999 &
           sleep 2
-          npx @bubblewrap/cli init --manifest=http://127.0.0.1:9999/manifest.json --directory=/tmp/app-output --jvm=/usr/lib/jvm/temurin-17-jdk-amd64/bin/java --androidSdkPath=$ANDROID_HOME --signingMode=none 2>&1 || true
+          npx @bubblewrap/cli init --manifest=http://127.0.0.1:9999/manifest.json --directory=/tmp/app-output 2>&1 || true
           kill %1 2>/dev/null || true
-      - name: Gradle build
+      - name: Build APK
         run: |
           if [ -f /tmp/app-output/gradlew ]; then
             cd /tmp/app-output
             chmod +x gradlew
             ./gradlew assembleRelease 2>&1 || true
-          else
-            echo "No gradlew found - trying alternative build"
-            ls -la /tmp/app-output/ 2>/dev/null || true
           fi
-      - name: Find APK
-        run: |
-          find / /tmp -name '*.apk' -type f 2>/dev/null || echo "No APK found"
+          find /tmp -name '*.apk' -type f 2>/dev/null || echo "No APK found"
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
