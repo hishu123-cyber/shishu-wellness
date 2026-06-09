@@ -19,8 +19,9 @@ jobs:
 
       - name: Generate signing key and print fingerprint
         run: |
+          mkdir -p /tmp/twa-build/app
           keytool -genkeypair -v \
-            -keystore app/keystore.jks \
+            -keystore /tmp/twa-build/app/keystore.jks \
             -alias key0 \
             -keyalg RSA \
             -keysize 2048 \
@@ -29,12 +30,13 @@ jobs:
             -keypass android \
             -dname "CN=Shishu, OU=Dev, O=Shishu Wellness, L=Beijing, ST=Beijing, C=CN"
           echo "=== SHA256 Certificate Fingerprint (for assetlinks.json) ==="
-          keytool -list -v -keystore app/keystore.jks -alias key0 -storepass android 2>&1 | grep SHA256
+          keytool -list -v -keystore /tmp/twa-build/app/keystore.jks -alias key0 -storepass android 2>&1 | grep SHA256 || true
 
       - name: Create TWA Android project
         run: |
-          mkdir -p app/src/main/java
-          mkdir -p app/src/main/res/{values,mipmap-hdpi,mipmap-mdpi,mipmap-xhdpi,mipmap-xxhdpi,mipmap-xxxhdpi}
+          T=/tmp/twa-build
+          mkdir -p $T/app/src/main/java
+          mkdir -p $T/app/src/main/res/{values,mipmap-hdpi,mipmap-mdpi,mipmap-xhdpi,mipmap-xxhdpi,mipmap-xxxhdpi}
 
           # Create icons with Python
           pip3 install Pillow -q
@@ -42,6 +44,7 @@ jobs:
           from PIL import Image, ImageDraw, ImageFont
           import os
           sizes = {'xxxhdpi': 512, 'xxhdpi': 192, 'xhdpi': 144, 'hdpi': 96, 'mdpi': 48}
+          base = '/tmp/twa-build/app/src/main/res'
           for density, size in sizes.items():
               img = Image.new('RGBA', (size, size), (27, 58, 45, 255))
               d = ImageDraw.Draw(img)
@@ -61,13 +64,13 @@ jobs:
               bbox = d.textbbox((0,0), text, font=font)
               w = bbox[2]-bbox[0]; h = bbox[3]-bbox[1]
               d.text(((size-w)//2, (size-h)//2 - bbox[1]), text, fill='white', font=font)
-              path = f'app/src/main/res/mipmap-{density}/ic_launcher.png'
+              path = f'{base}/mipmap-{density}/ic_launcher.png'
               img.save(path)
               print(f'Created {path} ({size}x{size})')
           PYEOF
 
           # AndroidManifest.xml
-          cat > app/src/main/AndroidManifest.xml << 'XML'
+          cat > $T/app/src/main/AndroidManifest.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <application
@@ -106,7 +109,7 @@ jobs:
           </manifest>
           XML
 
-          cat > app/src/main/res/values/strings.xml << 'XML'
+          cat > $T/app/src/main/res/values/strings.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
             <string name="app_name">食术养生</string>
@@ -114,7 +117,7 @@ jobs:
           </resources>
           XML
 
-          cat > app/src/main/res/values/colors.xml << 'XML'
+          cat > $T/app/src/main/res/values/colors.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
             <color name="colorPrimary">#1B3A2D</color>
@@ -123,7 +126,7 @@ jobs:
           </resources>
           XML
 
-          cat > app/src/main/res/values/styles.xml << 'XML'
+          cat > $T/app/src/main/res/values/styles.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
             <style name="Theme.TWA" parent="Theme.AppCompat.Light.NoActionBar">
@@ -135,7 +138,7 @@ jobs:
           XML
 
           # build.gradle (project level)
-          cat > build.gradle << 'GRADLE'
+          cat > $T/build.gradle << 'GRADLE'
           buildscript {
             repositories { google(); mavenCentral() }
             dependencies { classpath 'com.android.tools.build:gradle:8.1.4' }
@@ -144,7 +147,7 @@ jobs:
           GRADLE
 
           # build.gradle (app level)
-          cat > app/build.gradle << 'GRADLE'
+          cat > $T/app/build.gradle << 'GRADLE'
           plugins {
             id 'com.android.application'
           }
@@ -175,18 +178,16 @@ jobs:
           }
           GRADLE
 
-          # settings.gradle
-          echo 'include ":app"' > settings.gradle
+          echo 'include ":app"' > $T/settings.gradle
 
-          # gradle.properties
-          cat > gradle.properties << 'PROPS'
+          cat > $T/gradle.properties << 'PROPS'
           android.useAndroidX=true
           org.gradle.jvmargs=-Xmx2048m
           PROPS
 
-          # gradle wrapper
-          mkdir -p gradle/wrapper
-          cat > gradle/wrapper/gradle-wrapper.properties << 'WRAPPER'
+          # Gradle wrapper
+          mkdir -p $T/gradle/wrapper
+          cat > $T/gradle/wrapper/gradle-wrapper.properties << 'WRAPPER'
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
           distributionUrl=https\://services.gradle.org/distributions/gradle-8.0-bin.zip
@@ -195,7 +196,7 @@ jobs:
           WRAPPER
 
           echo "=== Project structure ==="
-          find . -type f | grep -v '.jks' | head -20
+          find $T -type f | grep -v '.jks' | head -25
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -203,15 +204,16 @@ jobs:
           gradle-version: '8.0'
 
       - name: Build Release APK
+        working-directory: /tmp/twa-build
         run: |
-          gradle assembleRelease 2>&1
+          gradle assembleRelease --no-daemon 2>&1
           echo "=== APK output ==="
-          find . -name '*.apk' -type f
+          find /tmp/twa-build -name '*.apk' -type f
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: wellness-app-apk
-          path: app/build/outputs/apk/release/
+          path: /tmp/twa-build/app/build/outputs/apk/release/
           if-no-files-found: warn
