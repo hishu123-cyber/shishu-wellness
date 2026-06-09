@@ -130,6 +130,25 @@ app.use(express.static(path.join(__dirname, 'frontend'), {
   }
 }));
 
+// Digital Asset Links for TWA
+app.get('/.well-known/assetlinks.json', function(req, res) {
+  res.setHeader('Content-Type', 'application/json');
+  // SHA256 fingerprint will be updated after first APK build
+  // Generate fingerprint: keytool -list -v -keystore keystore.jks -alias key0 -storepass android
+  res.json([
+    {
+      relation: ['delegate_permission/common.handle_all_urls'],
+      target: {
+        namespace: 'android_app',
+        package_name: 'com.shishu.wellness',
+        sha256_cert_fingerprints: [
+          '14:6D:E9:83:C5:95:18:54:1A:4B:43:90:7E:5B:5A:31:0B:5E:A0:AB:0B:93:4D:7B:2E:80:21:56:9C:93:82:6D'
+        ]
+      }
+    }
+  ]);
+});
+
 // Error handler will be placed after all routes (moved to end of file)
 
 // ── 微信支付 ──

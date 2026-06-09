@@ -25,11 +25,8 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Generate icons
-        run: |
-          mkdir -p frontend/assets
-          python3 scripts/make_icons.py frontend/assets/icon-512.png frontend/assets/icon-192.png
-          ls -la frontend/assets/icon-*.png
+      - name: Install Bubblewrap
+        run: npm install -g bubblewrap
 
       - name: Generate signing key
         run: |
@@ -43,41 +40,73 @@ jobs:
             -keypass android \
             -dname "CN=Shishu, OU=Dev, O=Shishu Wellness, L=Beijing, ST=Beijing, C=CN"
 
-      - name: Build TWA with Bubblewrap
+      - name: Print SHA256 fingerprint
         run: |
-          npm install -g @nickvdp/nickvdp 2>/dev/null || true
-          npx @nickvdp/nickvdp init \
+          echo "=== SHA256 Certificate Fingerprint ==="
+          keytool -list -v -keystore /tmp/keystore.jks -alias key0 -storepass android 2>&1 | grep -i 'SHA256' || true
+          echo "=== Copy this fingerprint to server.js assetlinks.json ==="
+
+      - name: Init TWA project
+        run: |
+          bubblewrap init \
             --manifest=https://shishu.xn--fiqs8s/manifest.json \
-            --directory=/tmp/twa-project 2>&1 || true
-          
-          # If init succeeded, try building
+            --directory=/tmp/twa-project \
+            --shellLauncherUrl="/app" || true
+
+      - name: Build APK with Bubblewrap
+        run: |
           if [ -f /tmp/twa-project/gradlew ]; then
             cd /tmp/twa-project
             chmod +x gradlew
             ./gradlew assembleRelease 2>&1 || true
           fi
-          
-          find /tmp -name '*.apk' -type f 2>/dev/null || echo "No APK from Bubblewrap, trying manual TWA..."
+          find /tmp -name '*.apk' -type f 2>/dev/null | head -5
 
-      - name: Manual TWA build (fallback)
+      - name: Manual TWA build (fallback if Bubblewrap failed)
         if: always()
         run: |
-          # Check if APK already exists
+          # Check if APK already exists from Bubblewrap
           if find /tmp -name '*.apk' -type f 2>/dev/null | grep -q apk; then
-            echo "APK already built, skipping manual build"
+            echo "APK already built by Bubblewrap, skipping manual build"
             exit 0
           fi
 
-          # Create minimal TWA project using androidbrowserhelper library
+          echo "=== Building manual TWA project ==="
           P=/tmp/manual-twa
           mkdir -p $P/app/src/main/java/com/shishu/wellness
           mkdir -p $P/app/src/main/res/{values,mipmap-hdpi,mipmap-mdpi,mipmap-xhdpi,mipmap-xxhdpi,mipmap-xxxhdpi}
           mkdir -p $P/gradle/wrapper
 
-          # Copy icons
-          cp frontend/assets/icon-512.png $P/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-          cp frontend/assets/icon-192.png $P/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          # Generate simple icons with ImageMagick if available, otherwise use a 1x1 placeholder
+          if command -v convert &> /dev/null; then
+            convert -size 512x512 xc:'#1B3A2D' -gravity center -fill white -pointsize 200 -annotate 0 '食术' $P/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+            convert -size 192x192 xc:'#1B3A2D' -gravity center -fill white -pointsize 72 -annotate 0 '食术' $P/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+            convert -size 144x144 xc:'#1B3A2D' -gravity center -fill white -pointsize 54 -annotate 0 '食术' $P/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+            convert -size 96x96 xc:'#1B3A2D' -gravity center -fill white -pointsize 36 -annotate 0 '食术' $P/app/src/main/res/mipmap-hdpi/ic_launcher.png
+            convert -size 48x48 xc:'#1B3A2D' -gravity center -fill white -pointsize 18 -annotate 0 '食术' $P/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          else
+            # Use Python to create simple icons
+            python3 -c "
+            from PIL import Image, ImageDraw, ImageFont
+            import os
+            sizes = {'xxxhdpi': 512, 'xxhdpi': 192, 'xhdpi': 144, 'hdpi': 96, 'mdpi': 48}
+            for density, size in sizes.items():
+                img = Image.new('RGBA', (size, size), (27, 58, 45, 255))
+                d = ImageDraw.Draw(img)
+                try:
+                    f = ImageFont.truetype('/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc', size//3)
+                except:
+                    f = ImageFont.load_default()
+                bbox = d.textbbox((0,0), '食', font=f)
+                w = bbox[2]-bbox[0]; h = bbox[3]-bbox[1]
+                d.text(((size-w)//2, (size-h)//2 - bbox[1]), '食', fill='white', font=f)
+                path = f'$P/app/src/main/res/mipmap-{density}/ic_launcher.png'
+                img.save(path)
+                print(f'Created {path}')
+            " 2>&1 || echo "PIL not available, creating placeholder icons"
+          fi
 
+          # build.gradle (project)
           cat > $P/build.gradle << 'GRADLE'
           buildscript {
             repositories { google(); mavenCentral() }
@@ -86,8 +115,10 @@ jobs:
           allprojects { repositories { google(); mavenCentral() } }
           GRADLE
 
+          # build.gradle (app)
           cat > $P/app/build.gradle << 'GRADLE'
           android {
+            namespace 'com.shishu.wellness'
             compileSdk 34
             defaultConfig {
               applicationId "com.shishu.wellness"
@@ -115,8 +146,7 @@ jobs:
 
           cat > $P/app/src/main/AndroidManifest.xml << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-            package="com.shishu.wellness">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <application
               android:allowBackup="true"
               android:icon="@mipmap/ic_launcher"
@@ -157,7 +187,7 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
             <string name="app_name">食术养生</string>
-            <string name="asset_statements">[{"relation": ["delegate_permission/common.handle_all_urls"], "target": {"namespace": "web", "site": "https://shishu.xn--fiqs8s"}}]</string>
+            <string name="asset_statements">[{\&quot;relation\&quot;: [\&quot;delegate_permission/common.handle_all_urls\&quot;], \&quot;target\&quot;: {\&quot;namespace\&quot;: \&quot;web\&quot;, \&quot;site\&quot;: \&quot;https://shishu.xn--fiqs8s\&quot;}}]</string>
           </resources>
           XML
 
@@ -187,14 +217,20 @@ jobs:
           cd $P
           gradle wrapper --gradle-version 8.0 2>&1
           chmod +x gradlew
-          ./gradlew assembleRelease 2>&1 || true
+          ./gradlew assembleRelease 2>&1
           find . -name '*.apk' -type f 2>/dev/null
+
+      - name: Collect APK
+        if: always()
+        run: |
+          mkdir -p /tmp/apk-output
+          find /tmp -name '*.apk' -type f -exec cp {} /tmp/apk-output/ \; 2>/dev/null
+          ls -la /tmp/apk-output/ || echo "No APK files found"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: wellness-app-apk
-          path: |
-            /tmp/**/*.apk
+          path: /tmp/apk-output/
           if-no-files-found: warn
