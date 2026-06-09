@@ -17,6 +17,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android licenses
+        run: yes | sdkmanager --licenses 2>/dev/null || true
+
       - name: Generate signing key and print fingerprint
         run: |
           mkdir -p /tmp/twa-build/app
@@ -183,6 +189,10 @@ jobs:
           org.gradle.jvmargs=-Xmx2048m
           PROPS
 
+          # Set local.properties with Android SDK path
+          echo "sdk.dir=$ANDROID_HOME" > $T/local.properties
+          echo "ANDROID_HOME=$ANDROID_HOME"
+
           # Gradle wrapper
           mkdir -p $T/gradle/wrapper
           cat > $T/gradle/wrapper/gradle-wrapper.properties << 'WRAPPER'
@@ -196,27 +206,16 @@ jobs:
           echo "=== Project structure ==="
           find $T -type f | grep -v '.jks' | head -25
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.4'
-
       - name: Build Release APK
-        working-directory: /tmp/twa-build
         run: |
-          gradle assembleRelease --no-daemon --stacktrace 2>&1 || true
+          cd /tmp/twa-build
+          # Create gradlew using gradle wrapper task
+          gradle wrapper --gradle-version 8.4 2>&1
+          chmod +x gradlew
+          # Build
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1
           echo "=== APK output ==="
           find /tmp/twa-build -name '*.apk' -type f || echo "No APK found"
-          echo "=== Build output directory ==="
-          ls -la /tmp/twa-build/app/build/outputs/apk/release/ 2>/dev/null || echo "No release dir"
-          ls -la /tmp/twa-build/app/build/outputs/ 2>/dev/null || echo "No outputs dir"
-          # Check for build errors
-          cat /tmp/twa-build/app/build/reports/errors.html 2>/dev/null | head -50 || true
-          # Fail if no APK
-          if ! find /tmp/twa-build -name '*.apk' -type f | grep -q apk; then
-            echo "ERROR: No APK generated"
-            exit 1
-          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
