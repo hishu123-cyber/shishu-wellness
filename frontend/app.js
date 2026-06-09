@@ -605,3 +605,19 @@ function showTeaWiki() {
 
 // ── Startup ──
 render();
+
+// 更新底部导航栏高亮
+function updateTabBar() {
+  var tabs = document.querySelectorAll('.tab-item');
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].classList.remove('active');
+  }
+  var page = state.page || 'home';
+  var activeTab = document.querySelector('.tab-item[data-page=\"' + page + '\"]');
+  if (activeTab) activeTab.classList.add('active');
+  // 商城子页面也高亮商城tab
+  if (page === 'shop-product' || page === 'shop-cart') {
+    var shopTab = document.querySelector('.tab-item[data-page=\"shop\"]');
+    if (shopTab) shopTab.classList.add('active');
+  }
+}
