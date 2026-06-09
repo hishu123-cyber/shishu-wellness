@@ -387,7 +387,7 @@ async function renderTea() {
   var h = '<div class="header"><h1><i class="fa-solid fa-leaf"></i> 茶养</h1><p>体质茶饮 · 每日养身</p></div>';
   document.getElementById("app").innerHTML = h + '<div class="page" id="tea-page"><div class="loading"><div class="spinner"></div></div></div>' + nav("tea");
   try {
-    var data = await api("/tea/today");
+    var data = await api("/api/tea/today");
     var con = data.constitution || "未测评";
     var conColors = { 气虚质: "#FF9800", 阳虚质: "#2196F3", 阴虚质: "#E91E63", 痰湿质: "#795548", 湿热质: "#F44336", 血瘀质: "#9C27B0", 气郁质: "#607D8B", 特禀质: "#00BCD4", 平和质: "#4CAF50" };
     var conColor = conColors[con] || "#999";
@@ -414,7 +414,7 @@ async function renderTea() {
 
     // 第二屏：十二时辰
     html += '<div class="tea-section"><div class="tea-section-title"><i class="fa-solid fa-clock"></i> 十二时辰饮茶</div><div class="tea-time-scroll" id="tea-time-scroll">';
-    var timeRules = await api("/tea/time-rules");
+    var timeRules = await api("/api/tea/time-rules");
     var hourNow = new Date().getHours();
     for (var i = 0; i < timeRules.length; i++) {
       var tr = timeRules[i];
@@ -429,7 +429,7 @@ async function renderTea() {
     html += "</div></div>";
 
     // 第三屏：节气
-    var seasonal = await api("/tea/seasonal");
+    var seasonal = await api("/api/tea/seasonal");
     if (seasonal && seasonal.current_term) {
       var ct = seasonal.current_term;
       html += '<div class="tea-section"><div class="tea-section-title"><i class="fa-solid fa-cloud-sun"></i> 节气养生</div>';
@@ -449,7 +449,7 @@ async function renderTea() {
     }
 
     // 第四屏：茶养数据
-    var recordsData = await api("/tea/records?days=30");
+    var recordsData = await api("/api/tea/records?days=30");
     var stats = recordsData.stats || { total: 0, days: 0, avg_score: 0 };
     var cDays = recordsData.continuous_days || 0;
     html += '<div class="tea-section"><div class="tea-section-title"><i class="fa-solid fa-chart-simple"></i> 我的茶养</div>';
@@ -462,7 +462,7 @@ async function renderTea() {
     html += "</div>";
 
     // 第五屏：养生知识
-    var dailyTip = await api("/tea/daily-tip");
+    var dailyTip = await api("/api/tea/daily-tip");
     html += '<div class="tea-section"><div class="tea-section-title"><i class="fa-solid fa-book"></i> 养生知识</div>';
     html += '<div class="tea-knowledge-grid">';
     html += '<div class="tea-kn-item" onclick="alert(&apos;即将上线&apos;)"><span class="tea-kn-icon">👅</span><span>舌诊自测</span></div>';
@@ -486,7 +486,7 @@ async function renderTea() {
 // 徽章渲染（独立函数）
 async function renderBadges() {
   try {
-    var badgeData = await api("/tea/badges");
+    var badgeData = await api("/api/tea/badges");
     var earnedBadges = [];
     for (var bi = 0; bi < badgeData.length; bi++) {
       if (badgeData[bi].earned) earnedBadges.push(badgeData[bi]);
@@ -574,7 +574,7 @@ async function submitTeaRecord(teaId, teaName) {
   var score = teaScore || null;
   var feeling = (document.getElementById("tea-feeling") || {}).value || "";
   try {
-    var r = await api("/tea/records", { method: "POST", body: JSON.stringify({ tea_id: teaId, tea_name: teaName, score: score, feeling: feeling, completed: true, time_slot: getTeaSlot() }) });
+    var r = await api("/api/tea/records", { method: "POST", body: JSON.stringify({ tea_id: teaId, tea_name: teaName, score: score, feeling: feeling, completed: true, time_slot: getTeaSlot() }) });
     if (r.new_badges && r.new_badges.length > 0) {
       var msg = "🎉 解锁徽章：";
       for (var i = 0; i < r.new_badges.length; i++) msg += r.new_badges[i].name + " ";
@@ -603,7 +603,7 @@ function getPopup() {
 function closePopup() { var p = document.getElementById("popup"); if (p) p.remove(); }
 
 function showTimeRule(id) {
-  api("/tea/time-rules").then(function(rules) {
+  api("/api/tea/time-rules").then(function(rules) {
     var tr = null;
     for (var i = 0; i < rules.length; i++) { if (rules[i].id === id) { tr = rules[i]; break; } }
     if (!tr) return;
@@ -614,7 +614,7 @@ function showTimeRule(id) {
 }
 
 function showTeaWiki() {
-  api("/tea/products").then(function(teas) {
+  api("/api/tea/products").then(function(teas) {
     var html = '<div style=background:var(--card);padding:20px;border-radius:16px;width:92%;max-width:380px;max-height:80vh;overflow-y:auto><h3 style=margin:0 0 12px;color:var(--green)>📚 茶疗百科</h3>';
     for (var i = 0; i < Math.min(teas.length, 12); i++) {
       html += '<div style=padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer onclick="closePopup();alert(' + JSON.stringify(teas[i].principle || "") + ')"><strong>' + esc(teas[i].name) + '</strong><br><span style=color:var(--text2);font-size:12px>' + esc(teas[i].benefits) + '</span></div>';
@@ -645,4 +645,5 @@ function updateTabBar() {
     if (shopTab) shopTab.classList.add('active');
   }
 }
+
 
