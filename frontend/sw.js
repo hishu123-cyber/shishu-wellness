@@ -1,4 +1,4 @@
-// 食术·中医体质养生 - Service Worker v2
+﻿// 食术·中医体质养生 - Service Worker v2
 const CACHE_NAME = 'wellness-v2';
 const ASSETS = [
   '/',
