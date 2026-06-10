@@ -305,15 +305,10 @@ async function renderShop(cat) {
   document.getElementById('app').innerHTML = h + b + nav('shop');
   
   try {
-    var results = await Promise.all([
-      api('/api/shop/products'),
-      api('/api/shop/categories'),
-      api('/api/shop/cart')
-    ]);
-    
-    var prods = results[0];
-    var cats = results[1];
-    var cartItems = results[2];
+    var prods = await api('/api/shop/products');
+    var cats = await api('/api/shop/categories');
+    var cartItems = [];
+    try { cartItems = await api('/api/shop/cart'); } catch(e) {}
     var cartCount = cartItems ? cartItems.reduce(function(s, i) { return s + i.quantity; }, 0) : 0;
     
     // 筛选逻辑
@@ -897,6 +892,7 @@ function updateTabBar() {
     if (shopTab) shopTab.classList.add('active');
   }
 }
+
 
 
 
