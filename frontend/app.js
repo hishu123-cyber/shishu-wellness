@@ -1,7 +1,7 @@
 ﻿const API=window.location.origin+'/api';
 let state={user:null,token:localStorage.getItem('token'),page:'home',pageParams:{}};
 function toast(m,t){if(!t)t='success';var e=document.getElementById('toast');if(!e){e=document.createElement('div');e.id='toast';e.className='toast';document.body.appendChild(e);}e.textContent=m;e.className='toast toast-'+t+' show';clearTimeout(e._timer);e._timer=setTimeout(function(){e.classList.remove('show');},2500);}
-async function api(p,o){if(!o)o={};var h={'Content-Type':'application/json'};if(state.token)h['Authorization']='Bearer '+state.token;try{var r=await fetch(API+p,{...o,headers:h});if(r.status===401&&!p.startsWith('/auth/')){state.token=null;localStorage.removeItem('token');state.user=null;navigate('login');throw Error('Unauthorized');}var d=await r.json();if(!r.ok)throw Error(d.detail||'Error');return d;}catch(e){throw e;}}
+async function api(p,o){if(!o)o={};var h={'Content-Type':'application/json'};if(state.token)h['Authorization']='Bearer '+state.token;try{var r=await fetch(API+p,{...o,headers:h});if(r.status===401&&!p.startsWith('/auth/')&&!o.noRedirect){state.token=null;localStorage.removeItem('token');state.user=null;navigate('login');throw Error('Unauthorized');}var d=await r.json();if(!r.ok)throw Error(d.detail||'Error');return d;}catch(e){if(o.silent)return null;throw e;}}
 function navigate(p,params){if(!params)params={};state.page=p;state.pageParams=params;window.scrollTo(0,0);if(typeof updateTabBar==='function')updateTabBar();render();}
 function render(){console.log('[render] called, page=', state.page, 'user=', !!state.user, 'token=', !!state.token);var guestPages=['shop','shop-product','shop-cart','recipes','recipe-detail','solar','articles','article-detail','tea'];var needAuth=state.page&&!guestPages.includes(state.page);if(!state.user&&state.token){api('/auth/me').then(function(u){state.user=u;render();}).catch(function(){state.token=null;localStorage.removeItem('token');if(needAuth){renderLogin();}else{render();}});document.getElementById('app').innerHTML='<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';return;}if(!state.user&&needAuth){renderLogin();return;}var ps={home:renderHome,diary:renderDiary,tea:renderTea,shop:renderShop,'shop-product':renderShopProduct,'shop-cart':renderShopCart,'diary-edit':renderDiaryEdit,constitution:renderConstitution,'constitution-assess':renderConstitutionAssess,'constitution-result':renderConstitutionResult,recipes:renderRecipes,'recipe-detail':renderRecipeDetail,solar:renderSolar,articles:renderArticles,'article-detail':renderArticleDetail,profile:renderProfile,'profile-edit':renderProfileEdit,tcm:renderTCM,consulting:renderConsulting,doctors:renderDoctors,'doctor-detail':renderDoctorDetail,consultation:renderConsultation,'my-consultations':renderMyConsultations,nutritionists:renderNutritionists,'nutritionist-detail':renderNutritionistDetail,'nutritionist-booking':renderNutritionistBooking,'my-nutritionist-bookings':renderMyNutritionistBookings};var fn=ps[state.page];if(fn)fn();else renderHome();}
 // nav removed: now using app.html fixed bottom navigation bar
@@ -425,46 +425,15 @@ async function renderShop(cat) {
     '<button onclick="searchProducts()" style="background:none;border:none;color:var(--green);font-size:16px;padding:4px 8px;cursor:pointer">搜索</button>' +
     '</div></div>';
   
-  var b = '<div class="page shop-page" id="shop-page">' +
-    '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>' +
-    '</div>';
-  
-  document.getElementById('app').innerHTML = h + b;
+  document.getElementById('app').innerHTML = h + '<div class="page shop-page" id="shop-page"><div class="loading"><div class="spinner"></div><p>加载中...</p></div></div>';
   
   try {
-    var prods = await api('/api/shop/products');
-    var cats = await api('/api/shop/categories');
+    var prods = await api('/api/shop/products', {silent:true});
+    var cats = await api('/api/shop/categories', {silent:true});
+    if (!prods || !cats) throw Error('network-error');
     var cartItems = [];
-    try { cartItems = await api('/api/shop/cart'); } catch(e) {}
+    try { cartItems = await api('/api/shop/cart', {silent:true}); } catch(e) {}
     var cartCount = cartItems ? cartItems.reduce(function(s, i) { return s + i.quantity; }, 0) : 0;
-    
-    // 筛选逻辑
-    var filtered = prods;
-    
-    // 分类筛选
-    if (shopState.category && shopState.category !== '全部') {
-      filtered = filtered.filter(function(p) { return p.category === shopState.category; });
-    }
-    
-    // 搜索筛选
-    if (shopState.searchTerm) {
-      var term = shopState.searchTerm.toLowerCase();
-      filtered = filtered.filter(function(p) {
-        return p.name.toLowerCase().indexOf(term) >= 0 ||
-               (p.description && p.description.toLowerCase().indexOf(term) >= 0);
-      });
-    }
-    
-    // 排序
-    if (shopState.sortBy === 'price-asc') {
-      filtered.sort(function(a, b) { return a.price - b.price; });
-    } else if (shopState.sortBy === 'price-desc') {
-      filtered.sort(function(a, b) { return b.price - a.price; });
-    } else if (shopState.sortBy === 'sales') {
-      filtered.sort(function(a, b) { return (b.sales_count || 0) - (a.sales_count || 0); });
-    }
-    
-    // 构建HTML
     var html = '';
     
     // ===== 轮播广告位（升级视觉） =====
@@ -508,7 +477,7 @@ async function renderShop(cat) {
       '<div class="shortcut-label">全部</div></div>' +
       '</div>';
     
-    // ===== 新增：限时秒杀区 =====
+    // ===== 限时秒杀 =====
     var flashSale = prods.filter(function(p) { return p.original_price && p.original_price > p.price; }).slice(0, 6);
     if (flashSale.length > 0) {
       html += '<div class="flash-sale-section">' +
@@ -538,144 +507,58 @@ async function renderShop(cat) {
     html += '<div class="shop-category-bar">' +
       '<div class="category-scroll">' +
       '<span class="category-tag ' + (!shopState.category || shopState.category === '全部' ? 'active' : '') + '" onclick="filterByCategory(null)">全部</span>';
-    
     for (var ci = 0; ci < cats.length; ci++) {
       var cc = cats[ci];
       if (cc && cc !== '全部') {
         html += '<span class="category-tag ' + (shopState.category === cc ? 'active' : '') + '" onclick="filterByCategory(\'' + cc + '\')">' + esc(cc) + '</span>';
       }
     }
-    
     html += '</div>' +
       '<div class="sort-btn" onclick="showSortPopup()">' +
       '<i class="fa-solid fa-filter"></i> 筛选' +
       '</div></div>';
     
-    // ===== 商品列表标题 =====
-    html += '<div class="section-header" style="padding:12px 12px 4px">' +
-      '<div class="section-title" style="font-size:15px">🛍️ 为你推荐</div>' +
-      '</div>';
-    
-    // ===== 商品列表（双列） =====
-    html += '<div class="shop-products">';
-    
-    if (filtered.length === 0) {
-      html += '<div class="shop-empty" style="grid-column:1/-1">' +
-        '<div style="font-size:64px;margin-bottom:16px">🔍</div>' +
-        '<div style="font-size:14px;color:var(--text2)">暂无相关商品</div>' +
-        '</div>';
-    } else {
-      for (var i = 0; i < filtered.length; i++) {
-        var x = filtered[i];
-        var colors = ['#4CAF50', '#FF9800', '#2196F3', '#9C27B0', '#F44336', '#00BCD4', '#FF5722', '#607D8B'];
-        var bg = colors[x.id % colors.length];
-        var emojis = ['🍵', '🌿', '🍯', '🥜', '🍄', '🥬', '🍊', '🍚', '🫘', '🌾'];
-        var emoji = emojis[x.id % emojis.length];
-        var disc = x.original_price && x.original_price > x.price ? Math.round((1 - x.price / x.original_price) * 100) : 0;
-        
-        // 淘宝风格商品卡片
-        html += '<div class="shop-product-card" onclick="openPrd(' + x.id + ')">' +
-          '<div class="product-image" style="background:linear-gradient(160deg,' + bg + '15,' + bg + '08)">' +
-          '<span class="product-emoji">' + emoji + '</span>' +
-          (disc > 0 ? '<span class="product-discount">-' + disc + '%</span>' : '') +
-          '<span class="product-tag-free-ship">包邮</span>' +
-          '</div>' +
-          '<div class="product-info">' +
-          '<div class="product-name">' + esc(x.name) + '</div>' +
-          '<div class="product-tags">' +
-          (x.is_new ? '<span class="product-tag tag-new">新品</span>' : '') +
-          (disc > 0 ? '<span class="product-tag tag-sale">秒杀</span>' : '') +
-          '<span class="product-tag tag-guarantee">正品保证</span>' +
-          '</div>' +
-          '<div class="product-bottom">' +
-          '<div class="product-price">' +
-          '<span class="price-symbol">¥</span>' +
-          '<span class="price-current">' + x.price + '</span>' +
-          (x.original_price && x.original_price > x.price ? '<span class="price-original">¥' + x.original_price + '</span>' : '') +
-          '</div>' +
-          '<div class="product-sales">已售' + (x.sales_count || 0) + '件</div>' +
-          '</div>' +
-          '<div class="product-shop">' +
-          '<i class="fa-solid fa-shop" style="font-size:10px;color:var(--text3);margin-right:2px"></i>' +
-          '<span style="font-size:10px;color:var(--text3)">养生优选旗舰店</span>' +
-          '</div></div></div>';
-      }
+    // ===== 商品网格 =====
+    html += '<div class="product-grid">';
+    var shown = filtered.slice(0, 20);
+    for (var i = 0; i < shown.length; i++) {
+      var p = shown[i];
+      var discount = p.original_price && p.original_price > p.price ? Math.round((1 - p.price / p.original_price) * 100) : 0;
+      var emj = { '食材': '🍯', '茶饮': '🍵', '厨具': '🏺', '药材': '🌿' }[p.category] || '📦';
+      html += '<div class="product-card" onclick="openPrd(' + p.id + ')">' +
+        '<div class="product-img" style="background:linear-gradient(135deg,var(--green),var(--green2))"><span style="font-size:40px">' + emj + '</span></div>' +
+        '<div class="product-info">' +
+        '<div class="product-name">' + esc(p.name) + '</div>' +
+        '<div class="product-desc">' + esc(p.description || '') + '</div>' +
+        '<div class="product-price-row">' +
+        '<span class="product-price">¥' + p.price + '</span>';
+      if (discount > 0) html += '<span class="product-tag tag-sale">省' + discount + '%</span>';
+      html += '</div><div class="product-meta">';
+      if (p.sales_count) html += '<span>销量 ' + p.sales_count + '</span>';
+      html += '<span>' + esc(p.category) + '</span></div></div></div>';
     }
-    
-    html += '</div>';
-    
-    // 购物车浮标
-    if (cartCount > 0) {
-      html += '<div class="cart-float-btn" onclick="navigate(\'shop-cart\')">' +
-        '<i class="fa-solid fa-cart-shopping"></i>' +
-        '<span class="cart-badge">' + cartCount + '</span>' +
-        '</div>';
-    }
+    html += '</div></div>';
     
     document.getElementById('shop-page').innerHTML = html;
     
-    // 启动轮播
-    startBannerRotation();
+    if (shown.length === 0) {
+      document.getElementById('shop-page').innerHTML = '<div style="padding:80px 20px;text-align:center;color:var(--text2)">' +
+        '<div style="font-size:64px;margin-bottom:16px">📦</div><div style="font-size:15px">暂无商品</div></div>';
+    }
     
-    // 启动秒杀倒计时
-    startFlashTimer();
-    
-  } catch (e) {
-    document.getElementById('shop-page').innerHTML = 
-      '<div style="padding:40px;text-align:center;color:var(--red)">' +
-      '加载失败<br>' +
-      '<button class="btn btn-sm btn-outline mt-2" onclick="renderShop()">重试</button>' +
-      '</div>';
+    // 轮播自动播放
+    window._shopBannerTimer = setInterval(switchBannerNext, 4000);
+    setupFlashTimer();
+  } catch(e) {
+    console.error('renderShop error:', e);
+    document.getElementById('shop-page').innerHTML = '<div style="padding:80px 20px;text-align:center;color:var(--text2)">' +
+      '<div style="font-size:64px;margin-bottom:16px">⚠️</div><div style="font-size:15px">商城加载失败</div>' +
+      '<button onclick="renderShop()" class="btn btn-primary" style="margin-top:12px;padding:10px 30px;border-radius:10px">重试</button></div>';
   }
 }
 
-// 新增：秒杀倒计时
-var _flashTimerInterval = null;
-function startFlashTimer() {
-  if (_flashTimerInterval) clearInterval(_flashTimerInterval);
-  var totalSec = 2 * 3600; // 2小时
-  var el = document.getElementById('flash-timer');
-  if (!el) return;
-  _flashTimerInterval = setInterval(function() {
-    totalSec--;
-    if (totalSec <= 0) { clearInterval(_flashTimerInterval); return; }
-    var h = Math.floor(totalSec / 3600);
-    var m = Math.floor((totalSec % 3600) / 60);
-    var s = totalSec % 60;
-    var disp = '距结束 ' + (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-    var el2 = document.getElementById('flash-timer');
-    if (el2) el2.textContent = disp;
-  }, 1000);
-}
 
 
-function renderShopProduct(){var p=state.pageParams.product;var h=hd(p.name);var colors=['#4CAF50','#FF9800','#2196F3','#9C27B0','#F44336','#00BCD4','#FF5722','#607D8B','#795548','#8BC34A'];var bg=colors[p.id%colors.length];var emojis=['🍵','🌿','🍯','🥜','🍄','🥬','🍊','🍚','🫘','🌾','🍠','🥦','🍇','🥛','🧊','🍳','🥟','🍜','🥗','🧁'];var emoji=emojis[p.id%emojis.length];var disc=p.original_price&&p.original_price>p.price?Math.round((1-p.price/p.original_price)*100):0;
-var b='<div class="page" style="padding-bottom:100px">'+
-  // 大图区
-  '<div style="background:linear-gradient(135deg,'+bg+',rgba(0,0,0,0.15));aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:80px;position:relative;margin:-16px -16px 0;border-radius:0 0 24px 24px">'+emoji+
-  (disc>0?'<span style="position:absolute;top:16px;right:16px;background:#f44336;color:#fff;padding:3px 10px;border-radius:6px;font-size:13px;font-weight:600">-'+disc+'%</span>':'')+
-  '</div>'+
-  // 价格区
-  '<div class="card" style="margin-top:16px;border-radius:12px">'+
-  '<div style="display:flex;align-items:baseline;gap:6px">'+
-  '<span style="font-size:28px;font-weight:700;color:var(--green)">¥'+p.price+'</span>'+
-  (p.original_price&&p.original_price>p.price?'<span style="font-size:14px;color:#999;text-decoration:line-through">¥'+p.original_price+'</span>':'')+
-  '</div>'+
-  '<div style="font-size:18px;font-weight:600;margin-top:8px">'+esc(p.name)+'</div>'+
-  '<div style="font-size:12px;color:var(--text2);margin-top:4px">已售'+(p.sales_count||0)+(p.tags?' · '+esc(p.tags):'')+'</div>'+
-  '</div>'+
-  // 商品描述
-  '<div class="card" style="border-radius:12px">'+
-  '<div style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--green)">📝 商品详情</div>'+
-  '<div style="font-size:13px;color:var(--text2);line-height:1.7">'+(p.description||'暂无描述')+'</div>'+
-  '</div>'+
-  // 底部固定操作栏
-  '<div style="position:fixed;bottom:0;left:0;right:0;background:var(--card);padding:10px 16px;display:flex;gap:10px;align-items:center;border-top:1px solid var(--border);z-index:10">'+
-  '<button onclick="navigate(\'shop-cart\')" style="background:none;border:none;font-size:20px;padding:8px;position:relative;cursor:pointer"><i class="fa-solid fa-cart-shopping"></i></button>'+
-  '<button class="btn btn-outline" style="flex:1;padding:12px;border-radius:10px;font-size:14px" onclick="addToCart('+p.id+')">加入购物车</button>'+
-  '<button class="btn" style="flex:1;padding:12px;border-radius:10px;font-size:14px;background:var(--gradient,linear-gradient(135deg,var(--green),#2d8a4e));color:#fff;border:none" onclick="addToCart('+p.id+');setTimeout(function(){navigate(\'shop-cart\')},300)">立即购买</button>'+
-  '</div></div>';
-document.getElementById('app').innerHTML=h+b;}
 async function renderShopCart(){updateThemeIcon();try{var items=await api('/api/shop/cart');var h=hd('购物车');if(!items||!items.length){document.getElementById('app').innerHTML=h+'<div class="page"><div style="padding:80px 20px;text-align:center"><div style="font-size:64px;margin-bottom:16px">🛒</div><div style="font-size:16px;color:var(--text2)">购物车是空的</div><button onclick="navigate(\'shop\')" class="btn btn-primary mt-4" style="padding:10px 30px;border-radius:10px">去逛逛</button></div></div>';return;}var colors=['#4CAF50','#FF9800','#2196F3','#9C27B0','#F44336','#00BCD4','#FF5722','#607D8B','#795548','#8BC34A'];var emojis=['🍵','🌿','🍯','🥜','🍄','🥬','🍊','🍚','🫘','🌾','🍠','🥦','🍇','🥛','🧊','🍳','🥟','🍜','🥗','🧁'];var html='<div class="page" style="padding-bottom:100px">';var total=0;for(var i=0;i<items.length;i++){var it=items[i];var subtotal=it.price*it.quantity;total+=subtotal;var bg=colors[it.product_id%colors.length];var emoji=emojis[it.product_id%emojis.length];html+='<div class="card" style="display:flex;gap:12px;padding:12px;border-radius:12px;margin-bottom:8px">'+
   '<div style="width:72px;height:72px;border-radius:10px;background:linear-gradient(135deg,'+bg+',rgba(0,0,0,0.1));display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">'+emoji+'</div>'+
   '<div style="flex:1;display:flex;flex-direction:column;justify-content:space-between">'+
@@ -747,7 +630,7 @@ async function renderTea() {
 
     // 第二屏：十二时辰
     html += '<div class="tea-section"><div class="tea-section-title"><i class="fa-solid fa-clock"></i> 十二时辰饮茶</div><div class="tea-time-scroll" id="tea-time-scroll">';
-    var timeRules = await api("/api/tea/time-rules");
+    var timeRules = await api("/api/tea/time-rules", {silent:true});
     var hourNow = new Date().getHours();
     for (var i = 0; i < timeRules.length; i++) {
       var tr = timeRules[i];
@@ -762,7 +645,7 @@ async function renderTea() {
     html += "</div></div>";
 
     // 第三屏：节气
-    var seasonal = await api("/api/tea/seasonal");
+    var seasonal = await api("/api/tea/seasonal", {silent:true});
     if (seasonal && seasonal.current_term) {
       var ct = seasonal.current_term;
       html += '<div class="tea-section"><div class="tea-section-title"><i class="fa-solid fa-cloud-sun"></i> 节气养生</div>';
@@ -801,7 +684,7 @@ async function renderTea() {
     }
 
     // 第五屏：养生知识
-    var dailyTip = await api("/api/tea/daily-tip");
+    var dailyTip = await api("/api/tea/daily-tip", {silent:true});
     html += '<div class="tea-section"><div class="tea-section-title"><i class="fa-solid fa-book"></i> 养生知识</div>';
     html += '<div class="tea-knowledge-grid">';
     html += '<div class="tea-kn-item" onclick="alert(&apos;即将上线&apos;)"><span class="tea-kn-icon">👅</span><span>舌诊自测</span></div>';
