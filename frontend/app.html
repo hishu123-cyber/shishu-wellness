@@ -58,7 +58,7 @@
       <span>我的</span>
     </div>
   </div>
-  <script src="/app.js?v=20260610153000"></script>
+  <script src="/app.js?v=20260610180000"></script>
   <script>
     // 初始化函数 - 在 app.js 加载完成后执行
     function initApp() {
@@ -76,7 +76,7 @@
     // Service Worker 注册
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw2.js?v=1781064741160').catch(() => {});
+        navigator.serviceWorker.register('/sw2.js?v=20260610180001').catch(() => {});
       });
     }
     

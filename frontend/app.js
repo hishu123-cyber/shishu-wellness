@@ -3,7 +3,7 @@ let state={user:null,token:localStorage.getItem('token'),page:'home',pageParams:
 function toast(m,t){if(!t)t='success';var e=document.getElementById('toast');if(!e){e=document.createElement('div');e.id='toast';e.className='toast';document.body.appendChild(e);}e.textContent=m;e.className='toast toast-'+t+' show';clearTimeout(e._timer);e._timer=setTimeout(function(){e.classList.remove('show');},2500);}
 async function api(p,o){if(!o)o={};var h={'Content-Type':'application/json'};if(state.token)h['Authorization']='Bearer '+state.token;try{var r=await fetch(API+p,{...o,headers:h});if(r.status===401&&!p.startsWith('/auth/')){state.token=null;localStorage.removeItem('token');state.user=null;navigate('login');throw Error('Unauthorized');}var d=await r.json();if(!r.ok)throw Error(d.detail||'Error');return d;}catch(e){throw e;}}
 function navigate(p,params){if(!params)params={};state.page=p;state.pageParams=params;window.scrollTo(0,0);if(typeof updateTabBar==='function')updateTabBar();render();}
-function render(){console.log('[render] called, page=', state.page, 'user=', !!state.user, 'token=', !!state.token);var guestPages=['shop','shop-product','shop-cart','recipes','recipe-detail','solar','articles','article-detail','tea'];var needAuth=state.page&&!guestPages.includes(state.page);if(!state.user&&state.token){api('/auth/me').then(function(u){state.user=u;render();}).catch(function(){state.token=null;localStorage.removeItem('token');if(needAuth){renderLogin();}else{render();}});document.getElementById('app').innerHTML='<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';return;}if(!state.user&&needAuth){renderLogin();return;}var ps={home:renderHome,diary:renderDiary,tea:renderTea,shop:renderShop,'shop-product':renderShopProduct,'shop-cart':renderShopCart,'diary-edit':renderDiaryEdit,constitution:renderConstitution,'constitution-assess':renderConstitutionAssess,'constitution-result':renderConstitutionResult,recipes:renderRecipes,'recipe-detail':renderRecipeDetail,solar:renderSolar,articles:renderArticles,'article-detail':renderArticleDetail,profile:renderProfile,'profile-edit':renderProfileEdit,tcm:renderTCM,consulting:renderConsulting};var fn=ps[state.page];if(fn)fn();else renderHome();}
+function render(){console.log('[render] called, page=', state.page, 'user=', !!state.user, 'token=', !!state.token);var guestPages=['shop','shop-product','shop-cart','recipes','recipe-detail','solar','articles','article-detail','tea'];var needAuth=state.page&&!guestPages.includes(state.page);if(!state.user&&state.token){api('/auth/me').then(function(u){state.user=u;render();}).catch(function(){state.token=null;localStorage.removeItem('token');if(needAuth){renderLogin();}else{render();}});document.getElementById('app').innerHTML='<div class="loading"><div class="spinner"></div><p>加载中...</p></div>';return;}if(!state.user&&needAuth){renderLogin();return;}var ps={home:renderHome,diary:renderDiary,tea:renderTea,shop:renderShop,'shop-product':renderShopProduct,'shop-cart':renderShopCart,'diary-edit':renderDiaryEdit,constitution:renderConstitution,'constitution-assess':renderConstitutionAssess,'constitution-result':renderConstitutionResult,recipes:renderRecipes,'recipe-detail':renderRecipeDetail,solar:renderSolar,articles:renderArticles,'article-detail':renderArticleDetail,profile:renderProfile,'profile-edit':renderProfileEdit,tcm:renderTCM,consulting:renderConsulting,doctors:renderDoctors,'doctor-detail':renderDoctorDetail,consultation:renderConsultation,'my-consultations':renderMyConsultations,nutritionists:renderNutritionists,'nutritionist-detail':renderNutritionistDetail,'nutritionist-booking':renderNutritionistBooking,'my-nutritionist-bookings':renderMyNutritionistBookings};var fn=ps[state.page];if(fn)fn();else renderHome();}
 // nav removed: now using app.html fixed bottom navigation bar
 function hd(t,b){return '<div class="header header-back"><button onclick="navigate(\''+(b||'home')+'\')">‹</button><div style="flex:1"><h1>'+t+'</h1></div><button class="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;color:#fff;font-size:20px;padding:4px;line-height:1"><i class="fa-solid fa-moon"></i></button></div>';}
 function esc(s){if(!s)return'';return s.toString().replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -45,11 +45,12 @@ var body='<div class="page" style="padding-top:12px">'+
 '<div class="quick-grid">'+
 '<div class="quick-card" onclick="navigate(\'diary-edit\')"><div class="icon">✍️</div><div class="label">健康日记</div></div>'+
 '<div class="quick-card" onclick="navigate(\'constitution\')"><div class="icon">🧘</div><div class="label">体质测评</div></div>'+
-'<div class="quick-card" onclick="navigate(\'tcm\')"><div class="icon">🏥</div><div class="label">在线问诊</div></div>'+
+'<div class="quick-card" onclick="navigate(\'doctors\')"><div class="icon">👨‍⚕️</div><div class="label">医生上线</div></div>'+
+'<div class="quick-card" onclick="navigate(\'nutritionists\')"><div class="icon">🍎</div><div class="label">营养师上门</div></div>'+
 '<div class="quick-card" onclick="navigate(\'recipes\')"><div class="icon">🥗</div><div class="label">食疗药膳</div></div>'+
-'<div class="quick-card" onclick="navigate(\'solar\')"><div class="icon">🌤</div><div class="label">节气养生</div></div>'+
+'<div class="quick-card" onclick="navigate(\'solar\')"><div class="icon">🌤️</div><div class="label">节气养生</div></div>'+
 '</div>'+
-'<div class="card" onclick="navigate(\'articles\')" style="cursor:pointer"><div class="flex-between"><div class="card-title"><i class="fa-solid fa-book-open"></i> 养生知识</div><span style="color:var(--green)">→</span></div><div class="card-subtitle">查看'+esc(state.user.constitution_type||'体质相关')+'养生文章</div></div>'+
+'<div class="card" onclick="navigate(\'articles\')" style="cursor:pointer"><div class="flex-between"><div class="card-title"><i class="fa-solid fa-book-open"></i> 养生知识</div><span style="color:var(--green)">→</span></div><div class="card-subtitle">查看'+esc(state.user.constitution_type||'体质相关')+'养生文章</div></div>'+'<div class="card" onclick="navigate(\'my-consultations\')" style="cursor:pointer"><div class="flex-between"><div class="card-title">🏥 我的问诊</div><span style="color:var(--green)">→</span></div><div class="card-subtitle">查看问诊记录和咨询</div></div>'+'<div class="card" onclick="navigate(\'my-nutritionist-bookings\')" style="cursor:pointer"><div class="flex-between"><div class="card-title">📅 我的预约</div><span style="color:var(--green)">→</span></div><div class="card-subtitle">查看营养师预约记录</div></div>'+
 '</div>';
 document.getElementById('app').innerHTML=hd+body;
 try{var todayData=null,diaryData=null;if(!isGuest){try{var results=await Promise.all([api('/diary/today'),api('/diary')]);todayData=results[0]||{};diaryData=results[1]||[];}catch(e){}}var t=todayData||{};var list=diaryData||[];
@@ -923,3 +924,647 @@ window.showTeaWiki = function() {
     '<button onclick="document.getElementById(\'popup\').remove()" class="btn btn-sm" style="width:100%;margin-top:16px;background:var(--green);color:#fff;border:none;padding:10px;border-radius:8px">关闭</button></div>';
   popup.style.display = 'flex';
 };
+
+
+// ========== 医生上线模块（前端）==========
+
+// 1. 医生列表页
+async function renderDoctors() {
+  updateThemeIcon();
+  var isGuest = !state.user;
+  var h = '<div class="header"><h1><i class="fa-solid fa-user-doctor"></i> 医生上线</h1></div>';
+  var b = '<div class="page" id="doctors-page">' +
+    '<div style="padding:12px 16px 8px">' +
+    '<div style="display:flex;gap:8px;align-items:center">' +
+    '<input id="doctor-search" style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:20px;font-size:14px;background:var(--bg);color:var(--text)" placeholder="搜索医生姓名/擅长..." onkeyup="if(event.key==\'Enter\')filterDoctors()">' +
+    '<button onclick="filterDoctors()" style="background:var(--green);color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:14px">搜索</button>' +
+    '</div></div>' +
+    '<div id="doctors-list" class="loading"><div class="spinner"></div><p>加载中...</p></div>' +
+    '</div>';
+  document.getElementById('app').innerHTML = h + b;
+
+  try {
+    var doctors = await api('/api/tcm/doctors');
+    window._doctorsCache = doctors;
+    renderDoctorsList(doctors);
+  } catch(e) {
+    document.getElementById('doctors-list').innerHTML = '<div style="padding:40px;text-align:center;color:var(--red)">加载失败<br><button class="btn btn-sm btn-outline mt-2" onclick="renderDoctors()">重试</button></div>';
+  }
+}
+
+function filterDoctors() {
+  var term = document.getElementById('doctor-search').value.trim().toLowerCase();
+  var doctors = window._doctorsCache || [];
+  if (!term) {
+    renderDoctorsList(doctors);
+    return;
+  }
+  var filtered = doctors.filter(function(d) {
+    return (d.name && d.name.toLowerCase().indexOf(term) >= 0) ||
+           (d.specialty && d.specialty.toLowerCase().indexOf(term) >= 0) ||
+           (d.hospital && d.hospital.toLowerCase().indexOf(term) >= 0);
+  });
+  renderDoctorsList(filtered);
+}
+
+function renderDoctorsList(doctors) {
+  var html = '';
+  if (!doctors || !doctors.length) {
+    html = '<div style="padding:40px;text-align:center;color:var(--text2)">暂无医生数据</div>';
+    document.getElementById('doctors-list').innerHTML = html;
+    return;
+  }
+  for (var i = 0; i < doctors.length; i++) {
+    var d = doctors[i];
+    var stars = '';
+    for (var j = 0; j < 5; j++) {
+      stars += j < Math.round(d.rating || 0) ? '*' : ' ';
+    }
+    html += '<div class="card" style="cursor:pointer;margin-bottom:10px" onclick="navigate(\'doctor-detail\',{doctorId:' + d.id + '})">' +
+      '<div style="display:flex;gap:12px;align-items:start">' +
+      '<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--green),#2d8a4e);display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:bold;flex-shrink:0">' + esc(d.name ? d.name[0] : '?') + '</div>' +
+      '<div style="flex:1">' +
+      '<div style="font-weight:600;font-size:16px">' + esc(d.name || '') + ' <span style="font-size:12px;color:var(--green)">' + esc(d.title || '') + '</span></div>' +
+      '<div style="font-size:12px;color:var(--text2);margin:2px 0">' + esc(d.hospital || '') + '</div>' +
+      '<div style="font-size:12px;color:var(--text2)">擅长: ' + esc(d.specialty || '') + '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">' +
+      '<span style="color:#f5a623;font-size:12px">' + stars + ' <span style="color:var(--text2)">' + (d.rating || 0) + '分 · ' + (d.consultation_count || 0) + '次咨询</span></span>' +
+      '<span style="font-size:14px;font-weight:600;color:var(--green)">¥' + (d.price_online || 0) + '起</span></div></div></div>';
+  }
+  document.getElementById('doctors-list').innerHTML = html;
+}
+
+// 2. 医生详情页 + 预约
+async function renderDoctorDetail() {
+  var doctorId = state.pageParams.doctorId;
+  if (!doctorId) { navigate('doctors'); return; }
+  updateThemeIcon();
+  var h = '<div class="header"><h1><i class="fa-solid fa-user-doctor"></i> 医生详情</h1><div style="margin-top:4px;font-size:13px;opacity:0.8;cursor:pointer" onclick="navigate(\'doctors\')">← 返回列表</div></div>';
+  document.getElementById('app').innerHTML = h + '<div class="page" id="doctor-detail-page"><div class="loading"><div class="spinner"></div><p>加载中...</p></div></div>';
+
+  try {
+    var doctor = await api('/api/tcm/doctors/' + doctorId);
+    window._currentDoctor = doctor;
+    var stars = '';
+    for (var i = 0; i < 5; i++) {
+      stars += i < Math.round(doctor.rating || 0) ? '*' : ' ';
+    }
+
+    var services = doctor.services || [];
+    var servicesHtml = '';
+    for (var j = 0; j < services.length; j++) {
+      var s = services[j];
+      servicesHtml += '<div class="card" style="margin-bottom:8px">' +
+        '<div style="font-weight:600;font-size:15px">' + esc(s.title || '') + '</div>' +
+        '<div style="font-size:13px;color:var(--text2);margin:4px 0">' + esc(s.description || '') + '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">' +
+        '<span style="font-size:13px;color:var(--text2)">时长: ' + (s.duration_minutes || 0) + '分钟</span>' +
+        '<span style="font-size:16px;font-weight:700;color:var(--green)">¥' + (s.price || 0) + '</span></div>' +
+        '<button onclick="startConsult(' + doctor.id + ',\'' + esc(doctor.name).replace(/'/g, '') + '\',\'' + esc(doctor.title || '').replace(/'/g, '') + '\',' + (s.price || 0) + ')" class="btn btn-primary btn-block mt-2" style="border-radius:8px">预约咨询</button>' +
+        '</div>';
+    }
+
+    var html = '<div class="page" id="doctor-detail-page" style="padding-bottom:100px">' +
+      '<div class="card" style="text-align:center;padding:20px">' +
+      '<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--green),#2d8a4e);display:flex;align-items:center;justify-content:center;color:#fff;font-size:36px;font-weight:bold;margin:0 auto 12px">' + esc(doctor.name ? doctor.name[0] : '?') + '</div>' +
+      '<div style="font-size:20px;font-weight:700;margin-bottom:4px">' + esc(doctor.name || '') + '</div>' +
+      '<div style="font-size:14px;color:var(--green);margin-bottom:8px">' + esc(doctor.title || '') + ' · ' + esc(doctor.hospital || '') + '</div>' +
+      '<div style="font-size:13px;color:var(--text2);margin-bottom:4px">擅长: ' + esc(doctor.specialty || '') + '</div>' +
+      '<div style="font-size:13px;color:var(--text2);margin-bottom:8px">' + esc(doctor.introduction || '') + '</div>' +
+      '<div style="display:flex;justify-content:center;gap:16px;font-size:13px;color:var(--text2)">' +
+      '<span>' + stars + ' ' + (doctor.rating || 0) + '分</span>' +
+      '<span>' + (doctor.consultation_count || 0) + '次咨询</span>' +
+      '</div></div>' +
+      '<div class="card-title" style="padding:0 16px">服务项目</div>' +
+      '<div style="padding:0 16px">' + (servicesHtml || '<div style="padding:20px;text-align:center;color:var(--text2)">暂无服务项目</div>') + '</div>' +
+      '</div>';
+
+    document.getElementById('doctor-detail-page').outerHTML = html;
+  } catch(e) {
+    document.getElementById('doctor-detail-page').innerHTML = '<div style="padding:40px;text-align:center;color:var(--red)">加载失败<br><button class="btn btn-sm btn-outline mt-2" onclick="renderDoctorDetail()">重试</button></div>';
+  }
+}
+
+// 开始问诊（弹窗填写症状）
+window.startConsult = async function(doctorId, doctorName, doctorTitle, price) {
+  if (!state.user) {
+    toast('请先登录', 'error');
+    setTimeout(function() { navigate('login'); }, 1500);
+    return;
+  }
+
+  var popup = document.getElementById('popup') || (function() {
+    var e = document.createElement('div');
+    e.id = 'popup';
+    e.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+    document.body.appendChild(e);
+    return e;
+  })();
+
+  popup.innerHTML = '<div style="background:var(--card);padding:24px;border-radius:16px;width:90%;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">' +
+    '<h3 style="margin:0 0 16px">问诊挂号</h3>' +
+    '<div style="font-size:13px;color:var(--text2);margin-bottom:12px">医生：' + esc(doctorName) + ' ' + esc(doctorTitle) + '<br>费用：¥' + (price || 0) + '（图文咨询）</div>' +
+    '<textarea id="symptom-input" rows="4" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;box-sizing:border-box;background:var(--bg);color:var(--text);resize:none" placeholder="请描述你的主要症状或想咨询的问题..."></textarea>' +
+    '<div style="display:flex;gap:8px;margin-top:16px">' +
+    '<button onclick="document.getElementById(\'popup\').remove()" class="btn btn-sm btn-outline" style="flex:1">取消</button>' +
+    '<button onclick="submitConsult(' + doctorId + ')" class="btn btn-sm" style="flex:1;background:var(--green);color:#fff;border:none;padding:10px;border-radius:8px">提交挂号</button>' +
+    '</div></div>';
+  popup.style.display = 'flex';
+};
+
+// 提交问诊
+window.submitConsult = async function(doctorId) {
+  var symptom = document.getElementById('symptom-input').value.trim();
+  if (!symptom) { toast('请描述你的症状', 'error'); return; }
+  var popup = document.getElementById('popup');
+  if (popup) popup.remove();
+  try {
+    var res = await api('/api/tcm/consultations', {
+      method: 'POST',
+      body: JSON.stringify({ doctor_id: doctorId, symptoms: symptom, type: 'text' })
+    });
+    if (res && res.id) {
+      toast('挂号成功！等待医生接诊');
+      navigate('consultation', { consultId: res.id, doctor_id: doctorId });
+    } else { toast('挂号失败，请重试', 'error'); }
+  } catch(e) { toast(e.message, 'error'); }
+};
+
+// 3. 问诊聊天页面
+async function renderConsultation() {
+  updateThemeIcon();
+  var consultId = state.pageParams.consultId;
+  var doctorId = state.pageParams.doctor_id;
+  if (!consultId) { renderDoctors(); return; }
+
+  var h = '<div class="header"><h1><i class="fa-solid fa-comment-medical"></i> 问诊中</h1></div>';
+  var b = '<div class="page" style="display:flex;flex-direction:column;height:calc(100vh - 140px)">' +
+    '<div id="msg-area" style="flex:1;overflow-y:auto;padding:12px 16px"></div>' +
+    '<div style="display:flex;gap:8px;padding:10px 16px;border-top:1px solid var(--border);background:var(--card)">' +
+    '<input id="msg-input" style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:20px;font-size:14px;background:var(--bg);color:var(--text)" placeholder="输入消息..." onkeydown="if(event.key==\'Enter\')sendConsultMessage()">' +
+    '<button onclick="sendConsultMessage()" class="btn btn-sm" style="background:var(--green);color:#fff;border:none;border-radius:50%;width:40px;height:40px;flex-shrink:0"><i class="fa-solid fa-paper-plane"></i></button>' +
+    '</div></div>';
+  document.getElementById('app').innerHTML = h + b;
+
+  window._consultId = consultId;
+  loadMessages();
+  startMessagePolling();
+}
+
+async function loadMessages() {
+  if (!window._consultId) return;
+  try {
+    var msgs = await api('/api/tcm/messages/' + window._consultId);
+    var area = document.getElementById('msg-area');
+    if (area && msgs && msgs.length) {
+      var html = '';
+      var gotPrescription = false;
+      for (var i = 0; i < msgs.length; i++) {
+        var m = msgs[i];
+        if (m.msg_type === 'system') {
+          html += '<div style="text-align:center;margin:8px 0;font-size:12px;color:var(--text2)">' + esc(m.content || '') + '</div>';
+          if (m.content && m.content.indexOf('处方') >= 0) gotPrescription = true;
+        } else if (m.sender_type === 'user') {
+          html += '<div style="text-align:right;margin:6px 0"><span style="background:var(--green);color:#fff;padding:8px 14px;border-radius:12px 12px 4px 12px;display:inline-block;max-width:75%;font-size:14px;line-height:1.5">' + esc(m.content || '') + '</span></div>';
+        } else if (m.sender_type === 'doctor') {
+          html += '<div style="text-align:left;margin:6px 0"><span style="background:var(--card);padding:8px 14px;border-radius:12px 12px 12px 4px;display:inline-block;max-width:75%;font-size:14px;line-height:1.5;border:1px solid var(--border)">' + esc(m.content || '') + '</span></div>';
+        }
+      }
+      if (area.innerHTML !== html) { area.innerHTML = html; area.scrollTop = area.scrollHeight; }
+      if (gotPrescription) {
+        area.innerHTML += '<div style="text-align:center;margin:12px 0"><button onclick="showPrescription(' + window._consultId + ')" class="btn btn-sm" style="background:var(--green);color:#fff;border:none;padding:8px 20px;border-radius:8px">查看处方</button></div>';
+      }
+    }
+  } catch(e) { console.error('加载消息失败', e); }
+}
+
+window.sendConsultMessage = async function() {
+  var input = document.getElementById('msg-input');
+  var content = input.value.trim();
+  if (!content || !window._consultId) return;
+  input.value = '';
+  try {
+    await api('/api/tcm/messages', {
+      method: 'POST',
+      body: JSON.stringify({ consultation_id: window._consultId, content: content })
+    });
+    await loadMessages();
+  } catch(e) { toast(e.message, 'error'); }
+};
+
+function startMessagePolling() {
+  if (window._msgTimer) clearInterval(window._msgTimer);
+  window._msgTimer = setInterval(function() {
+    if (window._consultId) { loadMessages(); } else { clearInterval(window._msgTimer); }
+  }, 3000);
+}
+
+window.showPrescription = async function(cid) {
+  try {
+    var pres = await api('/api/tcm/prescriptions/' + cid);
+    if (!pres || !pres.id) { toast('暂无处方', 'error'); return; }
+    var popup = document.getElementById('popup') || (function() {
+      var e = document.createElement('div');
+      e.id = 'popup';
+      e.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+      document.body.appendChild(e);
+      return e;
+    })();
+    var herbs = [];
+    try { herbs = JSON.parse(pres.prescription_text); } catch(e) { herbs = []; }
+    var herbHtml = '';
+    if (Array.isArray(herbs)) {
+      herbHtml = '<table style="width:100%;border-collapse:collapse;margin:10px 0"><tr><th style="border:1px solid var(--border);padding:6px">药材</th><th style="border:1px solid var(--border);padding:6px">剂量</th></tr>';
+      for (var i = 0; i < herbs.length; i++) {
+        herbHtml += '<tr><td style="border:1px solid var(--border);padding:6px">' + esc(herbs[i].name || '') + '</td><td style="border:1px solid var(--border);padding:6px">' + esc(herbs[i].dosage || '') + '</td></tr>';
+      }
+      herbHtml += '</table>';
+    }
+    popup.innerHTML = '<div style="background:var(--card);padding:24px;border-radius:16px;width:90%;max-width:400px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.2)">' +
+      '<h3 style="margin:0 0 12px">电子处方</h3>' +
+      '<div style="font-size:13px;color:var(--text2);margin-bottom:8px">医生：' + esc(pres.doctor_name || '') + '<br>日期：' + (pres.created_at || '').slice(0, 10) + '</div>' +
+      herbHtml +
+      '<div style="font-size:13px;line-height:1.6;margin-top:8px">' + esc(pres.notes || '') + '</div>' +
+      '<button onclick="document.getElementById(\'popup\').remove()" class="btn btn-sm btn-block mt-2" style="background:var(--green);color:#fff;border:none;padding:10px;border-radius:8px">关闭</button></div>';
+    popup.style.display = 'flex';
+  } catch(e) { toast(e.message, 'error'); }
+};
+
+// 4. 我的问诊列表
+async function renderMyConsultations() {
+  if (!state.user) {
+    toast('请先登录', 'error');
+    setTimeout(function() { navigate('login'); }, 1500);
+    return;
+  }
+  updateThemeIcon();
+  var h = '<div class="header"><h1><i class="fa-solid fa-clock-rotate-left"></i> 我的问诊</h1></div>';
+  var b = '<div class="page" id="consultations-list"><div class="loading"><div class="spinner"></div><p>加载中...</p></div></div>';
+  document.getElementById('app').innerHTML = h + b;
+
+  try {
+    var consultations = await api('/api/tcm/consultations');
+    var html = '';
+    if (!consultations || !consultations.length) {
+      html = '<div style="padding:60px 20px;text-align:center;color:var(--text2)"><div style="font-size:48px;margin-bottom:12px"></div><div>暂无问诊记录</div><button onclick="navigate(\'doctors\')" class="btn btn-primary mt-4">去找医生</button></div>';
+    } else {
+      var statusMap = { pending: '待接诊', active: '进行中', completed: '已完成', cancelled: '已取消' };
+      var typeMap = { text: '图文咨询', video: '视频问诊' };
+      for (var i = 0; i < consultations.length; i++) {
+        var c = consultations[i];
+        var statusClass = c.status === 'active' ? 'status-active' : c.status === 'completed' ? 'status-completed' : 'status-pending';
+        html += '<div class="card" style="cursor:pointer;margin-bottom:10px" onclick="navigate(\'consultation\',{consultId:' + c.id + ',doctor_id:' + (c.doctor_id || 0) + '})">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+          '<span style="font-weight:600;font-size:15px">' + esc(c.doctor_name || '医生') + '</span>' +
+          '<span class="' + statusClass + '" style="font-size:12px;padding:3px 8px;border-radius:6px">' + (statusMap[c.status] || c.status) + '</span>' +
+          '</div>' +
+          '<div style="font-size:13px;color:var(--text2);margin-bottom:4px">' + (typeMap[c.type] || c.type) + '</div>' +
+          '<div style="font-size:12px;color:var(--text2)">' + (c.created_at || '').slice(0, 16).replace('T', ' ') + '</div>' +
+          '</div>';
+      }
+    }
+    document.getElementById('consultations-list').innerHTML = html;
+  } catch(e) {
+    document.getElementById('consultations-list').innerHTML = '<div style="padding:40px;text-align:center;color:var(--red)">加载失败<br><button class="btn btn-sm btn-outline mt-2" onclick="renderMyConsultations()">重试</button></div>';
+  }
+}
+
+
+// ========== 营养师上门模块（前端）==========
+
+// 5. 营养师列表页
+async function renderNutritionists(filter) {
+  updateThemeIcon();
+  var isGuest = !state.user;
+  var h = '<div class="header"><h1><i class="fa-solid fa-apple-whole"></i> 营养师上门</h1></div>';
+  var b = '<div class="page" id="nutritionists-page">' +
+    '<div style="padding:12px 16px 8px">' +
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">' +
+    '<input id="nutritionist-search" style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:20px;font-size:14px;background:var(--bg);color:var(--text)" placeholder="搜索营养师姓名/擅长..." onkeyup="if(event.key==\'Enter\')filterNutritionists()">' +
+    '<button onclick="filterNutritionists()" style="background:var(--green);color:#fff;border:none;padding:10px 16px;border-radius:20px;cursor:pointer;font-size:14px">搜索</button>' +
+    '</div>' +
+    '<div id="nutritionist-filters" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px">' +
+    '<button class="filter-btn active" onclick="filterNutritionistsByType(\'all\')">全部</button>' +
+    '<button class="filter-btn" onclick="filterNutritionistsByType(\'online\')">线上咨询</button>' +
+    '<button class="filter-btn" onclick="filterNutritionistsByType(\'visit\')">上门服务</button>' +
+    '</div></div>' +
+    '<div id="nutritionists-list" class="loading"><div class="spinner"></div><p>加载中...</p></div>' +
+    '</div>';
+  document.getElementById('app').innerHTML = h + b;
+
+  try {
+    var nutritionists = await api('/api/nutritionists');
+    window._nutritionistsCache = nutritionists;
+    renderNutritionistsList(nutritionists);
+  } catch(e) {
+    document.getElementById('nutritionists-list').innerHTML = '<div style="padding:40px;text-align:center;color:var(--red)">加载失败<br><button class="btn btn-sm btn-outline mt-2" onclick="renderNutritionists()">重试</button></div>';
+  }
+}
+
+function filterNutritionists() {
+  var term = document.getElementById('nutritionist-search').value.trim().toLowerCase();
+  var list = window._nutritionistsCache || [];
+  if (!term) { renderNutritionistsList(list); return; }
+  var filtered = list.filter(function(n) {
+    return (n.name && n.name.toLowerCase().indexOf(term) >= 0) ||
+           (n.specialty && n.specialty.toLowerCase().indexOf(term) >= 0) ||
+           (n.hospital && n.hospital.toLowerCase().indexOf(term) >= 0);
+  });
+  renderNutritionistsList(filtered);
+}
+
+function filterNutritionistsByType(type) {
+  var btns = document.querySelectorAll('#nutritionist-filters .filter-btn');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  event.target.classList.add('active');
+
+  var list = window._nutritionistsCache || [];
+  if (type === 'all') { renderNutritionistsList(list); return; }
+  var filtered = list.filter(function(n) {
+    return (type === 'online' && n.price_online > 0) ||
+           (type === 'visit' && n.price_visit > 0);
+  });
+  renderNutritionistsList(filtered);
+}
+
+function renderNutritionistsList(list) {
+  var html = '';
+  if (!list || !list.length) {
+    html = '<div style="padding:40px;text-align:center;color:var(--text2)">暂无营养师数据</div>';
+    document.getElementById('nutritionists-list').innerHTML = html;
+    return;
+  }
+  for (var i = 0; i < list.length; i++) {
+    var n = list[i];
+    var stars = '';
+    for (var j = 0; j < 5; j++) {
+      stars += j < Math.round(n.rating || 0) ? '*' : ' ';
+    }
+    html += '<div class="card" style="cursor:pointer;margin-bottom:10px" onclick="navigate(\'nutritionist-detail\',' + JSON.stringify({ id: n.id }) + ')">' +
+      '<div style="display:flex;gap:12px;align-items:start">' +
+      '<div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--green),#2d8a4e);display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:bold;flex-shrink:0">' + esc(n.name ? n.name[0] : '?') + '</div>' +
+      '<div style="flex:1">' +
+      '<div style="font-weight:600;font-size:16px">' + esc(n.name || '') + ' <span style="font-size:12px;color:var(--green)">' + esc(n.title || '') + '</span></div>' +
+      '<div style="font-size:12px;color:var(--text2);margin:2px 0">' + esc(n.hospital || '') + '</div>' +
+      '<div style="font-size:12px;color:var(--text2)">擅长: ' + esc(n.specialty || '') + '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">' +
+      '<span style="color:#f5a623;font-size:12px">' + stars + ' <span style="color:var(--text2)">' + (n.rating || 0) + '分 · ' + (n.service_count || 0) + '次服务</span></span>' +
+      '<span style="font-size:14px;font-weight:600;color:var(--green)">线上¥' + (n.price_online || 0) + ' 上门¥' + (n.price_visit || 0) + '</span></div></div></div>';
+  }
+  document.getElementById('nutritionists-list').innerHTML = html;
+}
+
+// 6. 营养师详情页 + 预约
+async function renderNutritionistDetail() {
+  var nutritionistId = state.pageParams.id;
+  if (!nutritionistId) { navigate('nutritionists'); return; }
+  updateThemeIcon();
+  var h = '<div class="header"><h1><i class="fa-solid fa-apple-whole"></i> 营养师详情</h1><div style="margin-top:4px;font-size:13px;opacity:0.8;cursor:pointer" onclick="navigate(\'nutritionists\')">← 返回列表</div></div>';
+  document.getElementById('app').innerHTML = h + '<div class="page" id="nutritionist-detail-page"><div class="loading"><div class="spinner"></div><p>加载中...</p></div></div>';
+
+  try {
+    var nutritionist = await api('/api/nutritionists/' + nutritionistId);
+    window._currentNutritionist = nutritionist;
+    var stars = '';
+    for (var i = 0; i < 5; i++) {
+      stars += i < Math.round(nutritionist.rating || 0) ? '*' : ' ';
+    }
+
+    var services = nutritionist.services || [];
+    var servicesHtml = '';
+    for (var j = 0; j < services.length; j++) {
+      var s = services[j];
+      servicesHtml += '<div class="card" style="margin-bottom:8px">' +
+        '<div style="font-weight:600;font-size:15px">' + esc(s.title || '') + ' <span style="font-size:12px;color:var(--text2)">' + (s.service_type === 'online' ? '线上咨询' : '上门服务') + '</span></div>' +
+        '<div style="font-size:13px;color:var(--text2);margin:4px 0">' + esc(s.description || '') + '</div>' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">' +
+        '<span style="font-size:13px;color:var(--text2)">时长: ' + (s.duration_minutes || 0) + '分钟</span>' +
+        '<span style="font-size:16px;font-weight:700;color:var(--green)">¥' + (s.price || 0) + '</span></div>' +
+        '<button onclick="bookNutritionist(' + nutritionist.id + ',' + s.id + ',\'' + esc(s.service_type || '') + '\',' + (s.price || 0) + ')" class="btn btn-primary btn-block mt-2" style="border-radius:8px">预约此服务</button>' +
+        '</div>';
+    }
+
+    var html = '<div class="page" id="nutritionist-detail-page" style="padding-bottom:100px">' +
+      '<div class="card" style="text-align:center;padding:20px">' +
+      '<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--green),#2d8a4e);display:flex;align-items:center;justify-content:center;color:#fff;font-size:36px;font-weight:bold;margin:0 auto 12px">' + esc(nutritionist.name ? nutritionist.name[0] : '?') + '</div>' +
+      '<div style="font-size:20px;font-weight:700;margin-bottom:4px">' + esc(nutritionist.name || '') + '</div>' +
+      '<div style="font-size:14px;color:var(--green);margin-bottom:8px">' + esc(nutritionist.title || '') + ' · ' + esc(nutritionist.hospital || '') + '</div>' +
+      '<div style="font-size:13px;color:var(--text2);margin-bottom:4px">擅长: ' + esc(nutritionist.specialty || '') + '</div>' +
+      '<div style="font-size:13px;color:var(--text2);margin-bottom:8px">' + esc(nutritionist.introduction || '') + '</div>' +
+      '<div style="display:flex;justify-content:center;gap:16px;font-size:13px;color:var(--text2)">' +
+      '<span>' + stars + ' ' + (nutritionist.rating || 0) + '分</span>' +
+      '<span>' + (nutritionist.service_count || 0) + '次服务</span>' +
+      '</div></div>' +
+      '<div class="card-title" style="padding:0 16px">服务项目</div>' +
+      '<div style="padding:0 16px">' + (servicesHtml || '<div style="padding:20px;text-align:center;color:var(--text2)">暂无服务项目</div>') + '</div>' +
+      '</div>';
+
+    document.getElementById('nutritionist-detail-page').outerHTML = html;
+  } catch(e) {
+    document.getElementById('nutritionist-detail-page').innerHTML = '<div style="padding:40px;text-align:center;color:var(--red)">加载失败<br><button class="btn btn-sm btn-outline mt-2" onclick="renderNutritionistDetail()">重试</button></div>';
+  }
+}
+
+window.bookNutritionist = async function(nutritionistId, serviceId, serviceType, price) {
+  if (!state.user) {
+    toast('请先登录', 'error');
+    setTimeout(function() { navigate('login'); }, 1500);
+    return;
+  }
+
+  var popup = document.getElementById('popup') || (function() {
+    var e = document.createElement('div');
+    e.id = 'popup';
+    e.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+    document.body.appendChild(e);
+    return e;
+  })();
+
+  var isVisit = serviceType === 'visit';
+  popup.innerHTML = '<div style="background:var(--card);padding:24px;border-radius:16px;width:90%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">' +
+    '<h3 style="margin:0 0 16px">确认预约</h3>' +
+    '<div style="font-size:13px;color:var(--text2);margin-bottom:12px">服务类型：' + (isVisit ? '上门服务' : '线上咨询') + '<br>费用：¥' + price + '</div>' +
+    '<div style="font-size:13px;margin-bottom:8px">预约日期</div>' +
+    '<input id="booking-date" type="date" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px">' +
+    '<div style="font-size:13px;margin-bottom:8px">预约时间</div>' +
+    '<input id="booking-time" type="time" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px">' +
+    (isVisit ? '<div style="font-size:13px;margin-bottom:8px">上门地址</div><input id="booking-address" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px" placeholder="请输入详细地址"></input>' : '') +
+    '<div style="font-size:13px;margin-bottom:8px">联系电话</div>' +
+    '<input id="booking-phone" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px" placeholder="请输入联系电话"></input>' +
+    '<div style="font-size:13px;margin-bottom:8px">备注（可选）</div>' +
+    '<textarea id="booking-note" rows="2" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:16px;resize:none" placeholder="描述你的营养需求或问题..."></textarea>' +
+    '<div style="display:flex;gap:8px">' +
+    '<button onclick="document.getElementById(\'popup\').remove()" class="btn btn-sm btn-outline" style="flex:1">取消</button>' +
+    '<button onclick="submitBooking(' + nutritionistId + ',' + serviceId + ',\'' + serviceType + '\')" class="btn btn-sm" style="flex:1;background:var(--green);color:#fff;border:none;padding:10px;border-radius:8px">确认预约</button>' +
+    '</div></div>';
+  popup.style.display = 'flex';
+};
+
+window.submitBooking = async function(nutritionistId, serviceId, serviceType) {
+  var date = document.getElementById('booking-date').value;
+  var time = document.getElementById('booking-time').value;
+  var address = document.getElementById('booking-address') ? document.getElementById('booking-address').value : '';
+  var phone = document.getElementById('booking-phone').value;
+  var note = document.getElementById('booking-note').value;
+
+  if (!date || !time) { toast('请选择预约日期和时间', 'error'); return; }
+  if (serviceType === 'visit' && !address) { toast('上门服务需填写地址', 'error'); return; }
+  if (!phone) { toast('请填写联系电话', 'error'); return; }
+
+  var popup = document.getElementById('popup');
+  if (popup) popup.remove();
+
+  try {
+    var res = await api('/api/nutritionist/bookings', {
+      method: 'POST',
+      body: JSON.stringify({
+        nutritionist_id: nutritionistId,
+        service_id: serviceId,
+        service_type: serviceType,
+        service_date: date,
+        service_time: time,
+        address: address,
+        contact_phone: phone,
+        user_note: note
+      })
+    });
+    if (res && res.booking && res.booking.id) {
+      toast('预约成功！等待营养师确认');
+      navigate('nutritionist-booking', { bookingId: res.booking.id });
+    } else { toast('预约失败，请重试', 'error'); }
+  } catch(e) { toast(e.message, 'error'); }
+};
+
+// 7. 预约详情页
+async function renderNutritionistBooking() {
+  var bookingId = state.pageParams.bookingId;
+  if (!bookingId) { navigate('my-nutritionist-bookings'); return; }
+  updateThemeIcon();
+  var h = '<div class="header"><h1><i class="fa-solid fa-calendar-check"></i> 预约详情</h1></div>';
+  var b = '<div class="page" id="booking-detail"><div class="loading"><div class="spinner"></div><p>加载中...</p></div></div>';
+  document.getElementById('app').innerHTML = h + b;
+
+  try {
+    var booking = await api('/api/nutritionist/bookings/' + bookingId);
+    var statusMap = { pending: '待确认', confirmed: '已确认', completed: '已完成', cancelled: '已取消' };
+    var typeMap = { online: '线上咨询', visit: '上门服务' };
+    var html = '<div class="page" id="booking-detail" style="padding-bottom:80px">' +
+      '<div class="card">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+      '<span style="font-weight:600;font-size:16px">' + esc(booking.nutritionist_name || '营养师') + '</span>' +
+      '<span style="font-size:12px;padding:4px 10px;border-radius:6px;background:var(--green);color:#fff">' + (statusMap[booking.status] || booking.status) + '</span>' +
+      '</div>' +
+      '<div style="font-size:13px;color:var(--text2);margin-bottom:4px">服务类型：' + (typeMap[booking.service_type] || booking.service_type) + '</div>' +
+      (booking.service_date ? '<div style="font-size:13px;color:var(--text2);margin-bottom:4px">预约日期：' + esc(booking.service_date) + ' ' + esc(booking.service_time || '') + '</div>' : '') +
+      (booking.address ? '<div style="font-size:13px;color:var(--text2);margin-bottom:4px">上门地址：' + esc(booking.address) + '</div>' : '') +
+      (booking.contact_phone ? '<div style="font-size:13px;color:var(--text2);margin-bottom:4px">联系电话：' + esc(booking.contact_phone) + '</div>' : '') +
+      (booking.user_note ? '<div style="font-size:13px;color:var(--text2);margin-bottom:4px">备注：' + esc(booking.user_note) + '</div>' : '') +
+      '<div style="font-size:14px;font-weight:600;color:var(--green);margin-top:8px">费用：¥' + (booking.price || 0) + '</div>' +
+      '</div>' +
+      (booking.status === 'pending' ? '<button onclick="cancelBooking(' + bookingId + ')" class="btn btn-block mt-4" style="background:#FFEBEE;color:var(--red);border:none;padding:12px;border-radius:8px;font-size:14px">取消预约</button>' : '') +
+      (booking.status === 'completed' ? '<button onclick="showReviewForm(' + bookingId + ')" class="btn btn-primary btn-block mt-4">评价此次服务</button>' : '') +
+      '</div>';
+    document.getElementById('booking-detail').outerHTML = html;
+  } catch(e) {
+    document.getElementById('booking-detail').innerHTML = '<div style="padding:40px;text-align:center;color:var(--red)">加载失败<br><button class="btn btn-sm btn-outline mt-2" onclick="renderNutritionistBooking()">重试</button></div>';
+  }
+}
+
+window.cancelBooking = async function(bookingId) {
+  if (!confirm('确定取消预约？')) return;
+  try {
+    await api('/api/nutritionist/bookings/' + bookingId + '/cancel', { method: 'POST' });
+    toast('预约已取消');
+    navigate('my-nutritionist-bookings');
+  } catch(e) { toast(e.message, 'error'); }
+};
+
+window.showReviewForm = function(bookingId) {
+  var popup = document.getElementById('popup') || (function() {
+    var e = document.createElement('div');
+    e.id = 'popup';
+    e.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+    document.body.appendChild(e);
+    return e;
+  })();
+  popup.innerHTML = '<div style="background:var(--card);padding:24px;border-radius:16px;width:90%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.2)">' +
+    '<h3 style="margin:0 0 16px">评价此次服务</h3>' +
+    '<div style="margin-bottom:16px">评分：' +
+    '<span onclick="setReviewRating(1)" style="cursor:pointer;font-size:20px" id="star-1">*</span>' +
+    '<span onclick="setReviewRating(2)" style="cursor:pointer;font-size:20px" id="star-2">*</span>' +
+    '<span onclick="setReviewRating(3)" style="cursor:pointer;font-size:20px" id="star-3">*</span>' +
+    '<span onclick="setReviewRating(4)" style="cursor:pointer;font-size:20px" id="star-4">*</span>' +
+    '<span onclick="setReviewRating(5)" style="cursor:pointer;font-size:20px" id="star-5">*</span>' +
+    '</div>' +
+    '<textarea id="review-text" rows="3" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:16px;resize:none" placeholder="分享你的服务体验..."></textarea>' +
+    '<div style="display:flex;gap:8px">' +
+    '<button onclick="document.getElementById(\'popup\').remove()" class="btn btn-sm btn-outline" style="flex:1">取消</button>' +
+    '<button onclick="submitReview(' + bookingId + ')" class="btn btn-sm" style="flex:1;background:var(--green);color:#fff;border:none;padding:10px;border-radius:8px">提交评价</button>' +
+    '</div></div>';
+  popup.style.display = 'flex';
+  window._reviewRating = 5;
+  for (var i = 1; i <= 5; i++) {
+    document.getElementById('star-' + i).textContent = '*';
+  }
+};
+
+window.setReviewRating = function(rating) {
+  window._reviewRating = rating;
+  for (var i = 1; i <= 5; i++) {
+    document.getElementById('star-' + i).textContent = i <= rating ? '*' : ' ';
+  }
+};
+
+window.submitReview = async function(bookingId) {
+  var rating = window._reviewRating || 5;
+  var review = document.getElementById('review-text').value.trim();
+  var popup = document.getElementById('popup');
+  if (popup) popup.remove();
+  try {
+    await api('/api/nutritionist/bookings/' + bookingId + '/review', {
+      method: 'POST',
+      body: JSON.stringify({ rating: rating, review: review })
+    });
+    toast('评价成功！');
+    navigate('nutritionist-booking', { bookingId: bookingId });
+  } catch(e) { toast(e.message, 'error'); }
+};
+
+// 8. 我的预约列表
+async function renderMyNutritionistBookings() {
+  if (!state.user) {
+    toast('请先登录', 'error');
+    setTimeout(function() { navigate('login'); }, 1500);
+    return;
+  }
+  updateThemeIcon();
+  var h = '<div class="header"><h1><i class="fa-solid fa-list-check"></i> 我的预约</h1></div>';
+  var b = '<div class="page" id="my-bookings-list"><div class="loading"><div class="spinner"></div><p>加载中...</p></div></div>';
+  document.getElementById('app').innerHTML = h + b;
+
+  try {
+    var bookings = await api('/api/nutritionist/bookings/my');
+    var html = '';
+    if (!bookings || !bookings.length) {
+      html = '<div style="padding:60px 20px;text-align:center;color:var(--text2)"><div style="font-size:48px;margin-bottom:12px"></div><div>暂无预约记录</div><button onclick="navigate(\'nutritionists\')" class="btn btn-primary mt-4">去找营养师</button></div>';
+    } else {
+      var statusMap = { pending: '待确认', confirmed: '已确认', completed: '已完成', cancelled: '已取消' };
+      var typeMap = { online: '线上咨询', visit: '上门服务' };
+      for (var i = 0; i < bookings.length; i++) {
+        var bk = bookings[i];
+        html += '<div class="card" style="cursor:pointer;margin-bottom:10px" onclick="navigate(\'nutritionist-booking\',' + JSON.stringify({ bookingId: bk.id }) + ')">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+          '<span style="font-weight:600;font-size:15px">' + esc(bk.nutritionist_name || '营养师') + '</span>' +
+          '<span style="font-size:12px;padding:3px 8px;border-radius:6px;background:var(--green);color:#fff">' + (statusMap[bk.status] || bk.status) + '</span>' +
+          '</div>' +
+          '<div style="font-size:13px;color:var(--text2);margin-bottom:4px">' + (typeMap[bk.service_type] || bk.service_type) + '</div>' +
+          (bk.service_date ? '<div style="font-size:12px;color:var(--text2)">' + esc(bk.service_date) + '</div>' : '') +
+          '</div>';
+      }
+    }
+    document.getElementById('my-bookings-list').innerHTML = html;
+  } catch(e) {
+    document.getElementById('my-bookings-list').innerHTML = '<div style="padding:40px;text-align:center;color:var(--red)">加载失败<br><button class="btn btn-sm btn-outline mt-2" onclick="renderMyNutritionistBookings()">重试</button></div>';
+  }
+}
+

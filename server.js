@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Wellness App — Backend API Server
  * Node.js + Express 5 + sql.js
  *
@@ -1415,6 +1415,15 @@ app.get('/api/tea/badges', auth, function(req, res) {
     }
 
     // 请求日志中间件
+
+    // 挂载营养师上门服务模块
+    try {
+      require('./nutritionist_service').setupRoutes(app, auth);
+      log.info('营养师上门服务模块已加载');
+    } catch(e) {
+      log.error('营养师上门服务模块初始化失败', e.message);
+    }
+
     app.use(function(req, res, next) {
       var start = Date.now();
       res.on('finish', function() {
