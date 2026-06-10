@@ -874,3 +874,198 @@ input, textarea, button { font-family: inherit; font-size: inherit; }
   }
 }
 
+
+/* ===== 限时秒杀区 ===== */
+.flash-sale-section {
+  background: #fff;
+  border-radius: 12px;
+  margin: 8px;
+  padding: 12px 0 8px 0;
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 12px 8px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ff2d4b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.flash-icon {
+  font-size: 18px;
+}
+
+.flash-timer {
+  font-size: 12px;
+  background: #ff2d4b;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+  font-weight: 600;
+}
+
+.section-more {
+  font-size: 12px;
+  color: #999;
+  cursor: pointer;
+}
+
+.flash-sale-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 0 12px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.flash-sale-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.flash-sale-item {
+  flex-shrink: 0;
+  width: 100px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.flash-img {
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.flash-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ff2d4b;
+}
+
+.flash-original {
+  font-size: 10px;
+  color: #999;
+  text-decoration: line-through;
+}
+
+.flash-progress {
+  width: 80%;
+  height: 6px;
+  background: #ffe0e0;
+  border-radius: 3px;
+  margin: 4px auto 2px;
+  overflow: hidden;
+}
+
+.flash-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #ff2d4b, #ff6b81);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.flash-sold {
+  font-size: 10px;
+  color: #ff2d4b;
+}
+
+/* ===== 商品标签 ===== */
+.product-tags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.product-tag {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.tag-new {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 0.5px solid #a5d6a7;
+}
+
+.tag-sale {
+  background: #ffebee;
+  color: #d32f2f;
+  border: 0.5px solid #ef9a9a;
+}
+
+.tag-guarantee {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 0.5px solid #90caf9;
+}
+
+.product-tag-free-ship {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  font-size: 9px;
+  background: #ff9800;
+  color: #fff;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+/* ===== 店铺信息 ===== */
+.product-shop {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 10px 8px;
+}
+
+/* ===== 价格符号样式升级 ===== */
+.price-symbol {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ff2d4b;
+}
+
+.price-current {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ff2d4b;
+}
+
+/* ===== 轮播图按钮 ===== */
+.banner-btn {
+  display: inline-block;
+  background: rgba(255,255,255,0.9);
+  color: #333;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 12px;
+  margin-top: 8px;
+  cursor: pointer;
+}
+
+/* ===== 暗色模式适配 ===== */
+[data-theme="dark"] .flash-sale-section { background: #1e1e1e; }
+[data-theme="dark"] .flash-price { color: #ff6b81; }
+[data-theme="dark"] .tag-new { background: #1b3a1f; color: #66bb6a; border-color: #2e7d32; }
+[data-theme="dark"] .tag-sale { background: #3a1c1c; color: #ef9a9a; border-color: #d32f2f; }
+[data-theme="dark"] .tag-guarantee { background: #1a237e; color: #90caf9; border-color: #1565c0; }

@@ -302,180 +302,7 @@ var shopState = {
 };
 
 // 商城首页
-async function renderShop(cat) {
-  updateThemeIcon();
-  
-  // 更新状态
-  if (cat) shopState.category = cat;
-  if (!cat) shopState.category = null;
-  
-  var h = '<div class="shop-header">' +
-    '<div class="shop-search-bar">' +
-    '<i class="fa-solid fa-search"></i>' +
-    '<input type="text" id="shop-search-input" placeholder="搜索养生好物..." onkeyup="if(event.key===\'Enter\')searchProducts()">' +
-    '<button onclick="searchProducts()" style="background:none;border:none;color:var(--green);font-size:16px;padding:4px 8px;cursor:pointer">搜索</button>' +
-    '</div></div>';
-  
-  var b = '<div class="page shop-page" id="shop-page">' +
-    '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>' +
-    '</div>';
-  
-  document.getElementById('app').innerHTML = h + b;
-  
-  try {
-    var prods = await api('/api/shop/products');
-    var cats = await api('/api/shop/categories');
-    var cartItems = [];
-    try { cartItems = await api('/api/shop/cart'); } catch(e) {}
-    var cartCount = cartItems ? cartItems.reduce(function(s, i) { return s + i.quantity; }, 0) : 0;
-    
-    // 筛选逻辑
-    var filtered = prods;
-    
-    // 分类筛选
-    if (shopState.category && shopState.category !== '全部') {
-      filtered = filtered.filter(function(p) { return p.category === shopState.category; });
-    }
-    
-    // 搜索筛选
-    if (shopState.searchTerm) {
-      var term = shopState.searchTerm.toLowerCase();
-      filtered = filtered.filter(function(p) {
-        return p.name.toLowerCase().indexOf(term) >= 0 ||
-               (p.description && p.description.toLowerCase().indexOf(term) >= 0);
-      });
-    }
-    
-    // 排序
-    if (shopState.sortBy === 'price-asc') {
-      filtered.sort(function(a, b) { return a.price - b.price; });
-    } else if (shopState.sortBy === 'price-desc') {
-      filtered.sort(function(a, b) { return b.price - a.price; });
-    } else if (shopState.sortBy === 'sales') {
-      filtered.sort(function(a, b) { return (b.sales_count || 0) - (a.sales_count || 0); });
-    }
-    
-    // 构建HTML
-    var html = '';
-    
-    // 轮播广告位
-    html += '<div class="shop-banner" id="shop-banner">' +
-      '<div class="banner-slides">' +
-      '<div class="banner-slide active" style="background:linear-gradient(135deg,#4CAF50,#2E7D32)">' +
-      '<div class="banner-content"><div class="banner-title">🍵 春季养生季</div><div class="banner-subtitle">精选茶饮满99减20</div></div>' +
-      '</div>' +
-      '<div class="banner-slide" style="background:linear-gradient(135deg,#FF9800,#F57C00)">' +
-      '<div class="banner-content"><div class="banner-title">🥗 食疗药膳</div><div class="banner-subtitle">体质调理好帮手</div></div>' +
-      '</div>' +
-      '<div class="banner-slide" style="background:linear-gradient(135deg,#2196F3,#1565C0)">' +
-      '<div class="banner-content"><div class="banner-title">🌿 中药材专区</div><div class="banner-subtitle">道地药材 品质保证</div></div>' +
-      '</div>' +
-      '</div>' +
-      '<div class="banner-dots">' +
-      '<span class="dot active" onclick="switchBanner(0)"></span>' +
-      '<span class="dot" onclick="switchBanner(1)"></span>' +
-      '<span class="dot" onclick="switchBanner(2)"></span>' +
-      '</div></div>';
-    
-    // 金刚区（快捷入口）
-    html += '<div class="shop-shortcuts">' +
-      '<div class="shortcut-item" onclick="filterByCategory(\'茶饮\')">' +
-      '<div class="shortcut-icon" style="background:linear-gradient(135deg,#4CAF50,#66BB6A)">🍵</div>' +
-      '<div class="shortcut-label">茶饮</div></div>' +
-      '<div class="shortcut-item" onclick="filterByCategory(\'药材\')">' +
-      '<div class="shortcut-icon" style="background:linear-gradient(135deg,#9C27B0,#BA68C8)">🌿</div>' +
-      '<div class="shortcut-label">药材</div></div>' +
-      '<div class="shortcut-item" onclick="filterByCategory(\'食材\')">' +
-      '<div class="shortcut-icon" style="background:linear-gradient(135deg,#FF9800,#FFB74D)">🥜</div>' +
-      '<div class="shortcut-label">食材</div></div>' +
-      '<div class="shortcut-item" onclick="filterByCategory(\'器具\')">' +
-      '<div class="shortcut-icon" style="background:linear-gradient(135deg,#2196F3,#64B5F6)">🏺</div>' +
-      '<div class="shortcut-label">器具</div></div>' +
-      '<div class="shortcut-item" onclick="filterByCategory(null)">' +
-      '<div class="shortcut-icon" style="background:linear-gradient(135deg,#F44336,#EF5350)">🔥</div>' +
-      '<div class="shortcut-label">热销</div></div>' +
-      '<div class="shortcut-item" onclick="showAllProducts()">' +
-      '<div class="shortcut-icon" style="background:linear-gradient(135deg,#607D8B,#90A4AE)">📦</div>' +
-      '<div class="shortcut-label">全部</div></div>' +
-      '</div>';
-    
-    // 分类导航条
-    html += '<div class="shop-category-bar">' +
-      '<div class="category-scroll">';
-    
-    // 添加"全部"分类
-    html += '<span class="category-tag ' + (!shopState.category || shopState.category === '全部' ? 'active' : '') + '" onclick="filterByCategory(null)">全部</span>';
-    
-    for (var ci = 0; ci < cats.length; ci++) {
-      var cc = cats[ci];
-      if (cc && cc !== '全部') {
-        html += '<span class="category-tag ' + (shopState.category === cc ? 'active' : '') + '" onclick="filterByCategory(\'' + cc + '\')">' + esc(cc) + '</span>';
-      }
-    }
-    
-    html += '</div>' +
-      '<div class="sort-btn" onclick="showSortPopup()">' +
-      '<i class="fa-solid fa-filter"></i> 筛选' +
-      '</div></div>';
-    
-    // 商品列表
-    html += '<div class="shop-products">';
-    
-    if (filtered.length === 0) {
-      html += '<div class="shop-empty">' +
-        '<div style="font-size:64px;margin-bottom:16px">🔍</div>' +
-        '<div style="font-size:14px;color:var(--text2)">暂无相关商品</div>' +
-        '</div>';
-    } else {
-      for (var i = 0; i < filtered.length; i++) {
-        var x = filtered[i];
-        var colors = ['#4CAF50', '#FF9800', '#2196F3', '#9C27B0', '#F44336', '#00BCD4', '#FF5722', '#607D8B'];
-        var bg = colors[x.id % colors.length];
-        var emojis = ['🍵', '🌿', '🍯', '🥜', '🍄', '🥬', '🍊', '🍚', '🫘', '🌾', '🍠', '🥦', '🍇', '🥛', '🧊', '🍳', '🥟', '🍜', '🥗', '🧁'];
-        var emoji = emojis[x.id % emojis.length];
-        var disc = x.original_price && x.original_price > x.price ? Math.round((1 - x.price / x.original_price) * 100) : 0;
-        
-        html += '<div class="shop-product-card" onclick="openPrd(' + x.id + ')">' +
-          '<div class="product-image" style="background:linear-gradient(135deg,' + bg + ',' + bg + '99)">' +
-          '<span class="product-emoji">' + emoji + '</span>' +
-          (disc > 0 ? '<span class="product-discount">-' + disc + '%</span>' : '') +
-          '</div>' +
-          '<div class="product-info">' +
-          '<div class="product-name">' + esc(x.name) + '</div>' +
-          '<div class="product-desc">' + esc(x.description || '精选养生好物').substring(0, 30) + '</div>' +
-          '<div class="product-bottom">' +
-          '<div class="product-price">' +
-          '<span class="price-current">¥' + x.price + '</span>' +
-          (x.original_price && x.original_price > x.price ? '<span class="price-original">¥' + x.original_price + '</span>' : '') +
-          '</div>' +
-          '<div class="product-sales">已售' + (x.sales_count || 0) + '</div>' +
-          '</div></div></div>';
-      }
-    }
-    
-    html += '</div>';
-    
-    // 购物车浮标
-    if (cartCount > 0) {
-      html += '<div class="cart-float-btn" onclick="navigate(\'shop-cart\')">' +
-        '<i class="fa-solid fa-cart-shopping"></i>' +
-        '<span class="cart-badge">' + cartCount + '</span>' +
-        '</div>';
-    }
-    
-    document.getElementById('shop-page').innerHTML = html;
-    
-    // 启动轮播
-    startBannerRotation();
-    
-  } catch (e) {
-    document.getElementById('shop-page').innerHTML = 
-      '<div style="padding:40px;text-align:center;color:var(--red)">' +
-      '加载失败<br>' +
-      '<button class="btn btn-sm btn-outline mt-2" onclick="renderShop()">重试</button>' +
-      '</div>';
-  }
-}
+
 
 // 轮播切换
 function switchBanner(index) {
@@ -583,6 +410,244 @@ function closePopup() {
 
 
 function openPrd(id){api('/api/shop/products/'+id).then(function(p){navigate('shop-product',{product:p});}).catch(function(e){toast(e.message,'error');});}
+async function renderShop(cat) {
+  updateThemeIcon();
+  
+  // 更新状态
+  if (cat) shopState.category = cat;
+  if (!cat) shopState.category = null;
+  
+  var h = '<div class="shop-header">' +
+    '<div class="shop-search-bar">' +
+    '<i class="fa-solid fa-search"></i>' +
+    '<input type="text" id="shop-search-input" placeholder="搜索养生好物..." onkeyup="if(event.key===\'Enter\')searchProducts()">' +
+    '<button onclick="searchProducts()" style="background:none;border:none;color:var(--green);font-size:16px;padding:4px 8px;cursor:pointer">搜索</button>' +
+    '</div></div>';
+  
+  var b = '<div class="page shop-page" id="shop-page">' +
+    '<div class="loading"><div class="spinner"></div><p>加载中...</p></div>' +
+    '</div>';
+  
+  document.getElementById('app').innerHTML = h + b;
+  
+  try {
+    var prods = await api('/api/shop/products');
+    var cats = await api('/api/shop/categories');
+    var cartItems = [];
+    try { cartItems = await api('/api/shop/cart'); } catch(e) {}
+    var cartCount = cartItems ? cartItems.reduce(function(s, i) { return s + i.quantity; }, 0) : 0;
+    
+    // 筛选逻辑
+    var filtered = prods;
+    
+    // 分类筛选
+    if (shopState.category && shopState.category !== '全部') {
+      filtered = filtered.filter(function(p) { return p.category === shopState.category; });
+    }
+    
+    // 搜索筛选
+    if (shopState.searchTerm) {
+      var term = shopState.searchTerm.toLowerCase();
+      filtered = filtered.filter(function(p) {
+        return p.name.toLowerCase().indexOf(term) >= 0 ||
+               (p.description && p.description.toLowerCase().indexOf(term) >= 0);
+      });
+    }
+    
+    // 排序
+    if (shopState.sortBy === 'price-asc') {
+      filtered.sort(function(a, b) { return a.price - b.price; });
+    } else if (shopState.sortBy === 'price-desc') {
+      filtered.sort(function(a, b) { return b.price - a.price; });
+    } else if (shopState.sortBy === 'sales') {
+      filtered.sort(function(a, b) { return (b.sales_count || 0) - (a.sales_count || 0); });
+    }
+    
+    // 构建HTML
+    var html = '';
+    
+    // ===== 轮播广告位（升级视觉） =====
+    html += '<div class="shop-banner" id="shop-banner">' +
+      '<div class="banner-slides">' +
+      '<div class="banner-slide active" style="background:linear-gradient(135deg,#ff6b35,#f7931e)">' +
+      '<div class="banner-content"><div class="banner-title">🍵 春季养生季</div><div class="banner-subtitle">精选茶饮满99减20</div><div class="banner-btn">立即抢购</div></div>' +
+      '</div>' +
+      '<div class="banner-slide" style="background:linear-gradient(135deg,#e91e63,#ff5722)">' +
+      '<div class="banner-content"><div class="banner-title">🥗 食疗药膳</div><div class="banner-subtitle">体质调理好帮手 · 正品保证</div><div class="banner-btn">查看详情</div></div>' +
+      '</div>' +
+      '<div class="banner-slide" style="background:linear-gradient(135deg,#9c27b0,#673ab7)">' +
+      '<div class="banner-content"><div class="banner-title">🌿 中药材专区</div><div class="banner-subtitle">道地药材 · 品质保证 · 买贵必赔</div><div class="banner-btn">进入专区</div></div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="banner-dots">' +
+      '<span class="dot active" onclick="switchBanner(0)"></span>' +
+      '<span class="dot" onclick="switchBanner(1)"></span>' +
+      '<span class="dot" onclick="switchBanner(2)"></span>' +
+      '</div></div>';
+    
+    // ===== 金刚区 =====
+    html += '<div class="shop-shortcuts">' +
+      '<div class="shortcut-item" onclick="filterByCategory(\'茶饮\')">' +
+      '<div class="shortcut-icon" style="background:linear-gradient(135deg,#4CAF50,#66BB6A)">🍵</div>' +
+      '<div class="shortcut-label">茶饮</div></div>' +
+      '<div class="shortcut-item" onclick="filterByCategory(\'药材\')">' +
+      '<div class="shortcut-icon" style="background:linear-gradient(135deg,#9C27B0,#BA68C8)">🌿</div>' +
+      '<div class="shortcut-label">药材</div></div>' +
+      '<div class="shortcut-item" onclick="filterByCategory(\'食材\')">' +
+      '<div class="shortcut-icon" style="background:linear-gradient(135deg,#FF9800,#FFB74D)">🥜</div>' +
+      '<div class="shortcut-label">食材</div></div>' +
+      '<div class="shortcut-item" onclick="filterByCategory(\'器具\')">' +
+      '<div class="shortcut-icon" style="background:linear-gradient(135deg,#2196F3,#64B5F6)">🏺</div>' +
+      '<div class="shortcut-label">器具</div></div>' +
+      '<div class="shortcut-item" onclick="filterByCategory(null)">' +
+      '<div class="shortcut-icon" style="background:linear-gradient(135deg,#F44336,#EF5350)">🔥</div>' +
+      '<div class="shortcut-label">热销</div></div>' +
+      '<div class="shortcut-item" onclick="showAllProducts()">' +
+      '<div class="shortcut-icon" style="background:linear-gradient(135deg,#607D8B,#90A4AE)">📦</div>' +
+      '<div class="shortcut-label">全部</div></div>' +
+      '</div>';
+    
+    // ===== 新增：限时秒杀区 =====
+    var flashSale = prods.filter(function(p) { return p.original_price && p.original_price > p.price; }).slice(0, 6);
+    if (flashSale.length > 0) {
+      html += '<div class="flash-sale-section">' +
+        '<div class="section-header">' +
+        '<div class="section-title">' +
+        '<span class="flash-icon">⚡</span> 限时秒杀' +
+        '<span class="flash-timer" id="flash-timer">距结束 02:00:00</span>' +
+        '</div>' +
+        '<div class="section-more" onclick="filterByCategory(null)">更多 ›</div>' +
+        '</div>' +
+        '<div class="flash-sale-scroll">';
+      for (var fi = 0; fi < flashSale.length; fi++) {
+        var fp = flashSale[fi];
+        var disc = Math.round((1 - fp.price / fp.original_price) * 100);
+        html += '<div class="flash-sale-item" onclick="openPrd(' + fp.id + ')">' +
+          '<div class="flash-img" style="background:linear-gradient(135deg,var(--green),var(--green2))"><span style="font-size:32px">🍵</span></div>' +
+          '<div class="flash-price">¥' + fp.price + '</div>' +
+          '<div class="flash-original">¥' + fp.original_price + '</div>' +
+          '<div class="flash-progress"><div class="flash-progress-bar" style="width:' + (30 + fi * 10) + '%"></div></div>' +
+          '<div class="flash-sold">已抢' + (30 + fi * 10) + '%</div>' +
+          '</div>';
+      }
+      html += '</div></div>';
+    }
+    
+    // ===== 分类导航条 =====
+    html += '<div class="shop-category-bar">' +
+      '<div class="category-scroll">' +
+      '<span class="category-tag ' + (!shopState.category || shopState.category === '全部' ? 'active' : '') + '" onclick="filterByCategory(null)">全部</span>';
+    
+    for (var ci = 0; ci < cats.length; ci++) {
+      var cc = cats[ci];
+      if (cc && cc !== '全部') {
+        html += '<span class="category-tag ' + (shopState.category === cc ? 'active' : '') + '" onclick="filterByCategory(\'' + cc + '\')">' + esc(cc) + '</span>';
+      }
+    }
+    
+    html += '</div>' +
+      '<div class="sort-btn" onclick="showSortPopup()">' +
+      '<i class="fa-solid fa-filter"></i> 筛选' +
+      '</div></div>';
+    
+    // ===== 商品列表标题 =====
+    html += '<div class="section-header" style="padding:12px 12px 4px">' +
+      '<div class="section-title" style="font-size:15px">🛍️ 为你推荐</div>' +
+      '</div>';
+    
+    // ===== 商品列表（双列） =====
+    html += '<div class="shop-products">';
+    
+    if (filtered.length === 0) {
+      html += '<div class="shop-empty" style="grid-column:1/-1">' +
+        '<div style="font-size:64px;margin-bottom:16px">🔍</div>' +
+        '<div style="font-size:14px;color:var(--text2)">暂无相关商品</div>' +
+        '</div>';
+    } else {
+      for (var i = 0; i < filtered.length; i++) {
+        var x = filtered[i];
+        var colors = ['#4CAF50', '#FF9800', '#2196F3', '#9C27B0', '#F44336', '#00BCD4', '#FF5722', '#607D8B'];
+        var bg = colors[x.id % colors.length];
+        var emojis = ['🍵', '🌿', '🍯', '🥜', '🍄', '🥬', '🍊', '🍚', '🫘', '🌾'];
+        var emoji = emojis[x.id % emojis.length];
+        var disc = x.original_price && x.original_price > x.price ? Math.round((1 - x.price / x.original_price) * 100) : 0;
+        
+        // 淘宝风格商品卡片
+        html += '<div class="shop-product-card" onclick="openPrd(' + x.id + ')">' +
+          '<div class="product-image" style="background:linear-gradient(160deg,' + bg + '15,' + bg + '08)">' +
+          '<span class="product-emoji">' + emoji + '</span>' +
+          (disc > 0 ? '<span class="product-discount">-' + disc + '%</span>' : '') +
+          '<span class="product-tag-free-ship">包邮</span>' +
+          '</div>' +
+          '<div class="product-info">' +
+          '<div class="product-name">' + esc(x.name) + '</div>' +
+          '<div class="product-tags">' +
+          (x.is_new ? '<span class="product-tag tag-new">新品</span>' : '') +
+          (disc > 0 ? '<span class="product-tag tag-sale">秒杀</span>' : '') +
+          '<span class="product-tag tag-guarantee">正品保证</span>' +
+          '</div>' +
+          '<div class="product-bottom">' +
+          '<div class="product-price">' +
+          '<span class="price-symbol">¥</span>' +
+          '<span class="price-current">' + x.price + '</span>' +
+          (x.original_price && x.original_price > x.price ? '<span class="price-original">¥' + x.original_price + '</span>' : '') +
+          '</div>' +
+          '<div class="product-sales">已售' + (x.sales_count || 0) + '件</div>' +
+          '</div>' +
+          '<div class="product-shop">' +
+          '<i class="fa-solid fa-shop" style="font-size:10px;color:var(--text3);margin-right:2px"></i>' +
+          '<span style="font-size:10px;color:var(--text3)">养生优选旗舰店</span>' +
+          '</div></div></div>';
+      }
+    }
+    
+    html += '</div>';
+    
+    // 购物车浮标
+    if (cartCount > 0) {
+      html += '<div class="cart-float-btn" onclick="navigate(\'shop-cart\')">' +
+        '<i class="fa-solid fa-cart-shopping"></i>' +
+        '<span class="cart-badge">' + cartCount + '</span>' +
+        '</div>';
+    }
+    
+    document.getElementById('shop-page').innerHTML = html;
+    
+    // 启动轮播
+    startBannerRotation();
+    
+    // 启动秒杀倒计时
+    startFlashTimer();
+    
+  } catch (e) {
+    document.getElementById('shop-page').innerHTML = 
+      '<div style="padding:40px;text-align:center;color:var(--red)">' +
+      '加载失败<br>' +
+      '<button class="btn btn-sm btn-outline mt-2" onclick="renderShop()">重试</button>' +
+      '</div>';
+  }
+}
+
+// 新增：秒杀倒计时
+var _flashTimerInterval = null;
+function startFlashTimer() {
+  if (_flashTimerInterval) clearInterval(_flashTimerInterval);
+  var totalSec = 2 * 3600; // 2小时
+  var el = document.getElementById('flash-timer');
+  if (!el) return;
+  _flashTimerInterval = setInterval(function() {
+    totalSec--;
+    if (totalSec <= 0) { clearInterval(_flashTimerInterval); return; }
+    var h = Math.floor(totalSec / 3600);
+    var m = Math.floor((totalSec % 3600) / 60);
+    var s = totalSec % 60;
+    var disp = '距结束 ' + (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    var el2 = document.getElementById('flash-timer');
+    if (el2) el2.textContent = disp;
+  }, 1000);
+}
+
+
 function renderShopProduct(){var p=state.pageParams.product;var h=hd(p.name);var colors=['#4CAF50','#FF9800','#2196F3','#9C27B0','#F44336','#00BCD4','#FF5722','#607D8B','#795548','#8BC34A'];var bg=colors[p.id%colors.length];var emojis=['🍵','🌿','🍯','🥜','🍄','🥬','🍊','🍚','🫘','🌾','🍠','🥦','🍇','🥛','🧊','🍳','🥟','🍜','🥗','🧁'];var emoji=emojis[p.id%emojis.length];var disc=p.original_price&&p.original_price>p.price?Math.round((1-p.price/p.original_price)*100):0;
 var b='<div class="page" style="padding-bottom:100px">'+
   // 大图区
