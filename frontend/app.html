@@ -10,7 +10,7 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="/styles.css?v=1781063624831">
+  <link rel="stylesheet" href="/styles.css?v=1781063770228">
   <title>食术·体质养生</title>
   <style>
     body { margin: 0; font-family: -apple-system, 'Noto Sans SC', 'PingFang SC', sans-serif; background: #f5f5f5; padding-bottom: 60px; }
@@ -58,30 +58,40 @@
       <span>我的</span>
     </div>
   </div>
-  <script src="/app.js?v=1781063624831"></script>
+  <script src="/app.js?v=1781063770228"></script>
   <script>
+    // 初始化函数 - 在 app.js 加载完成后执行
+    function initApp() {
+      console.log('[initApp] starting...');
+      if (typeof initTheme === 'function') initTheme();
+      if (typeof updateTabBar === 'function') updateTabBar();
+      if (typeof render === 'function') {
+        state.page = 'home';
+        render();
+      } else {
+        console.error('[initApp] render() not found');
+      }
+    }
+    
+    // Service Worker 注册
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw2.js?v=1781060413572').catch(() => {});
       });
     }
+    
     // 定时更新底部导航栏高亮（兼容方案）
     setInterval(function() {
       if (typeof updateTabBar === 'function') updateTabBar();
     }, 800);
-    // 页面加载后初始化
-    window.addEventListener('DOMContentLoaded', function() {
-      // 初始化主题和导航栏
-      if (typeof initTheme === 'function') initTheme();
-      if (typeof updateTabBar === 'function') updateTabBar();
-      // 渲染首页内容
-      if (typeof render === 'function') {
-        setTimeout(function() {
-          state.page = 'home';
-          render();
-        }, 100);
-      }
-    });
+    
+    // DOM 加载完成后初始化（此时 app.js 应该已加载）
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      // DOM 已经加载完成
+      initApp();
+    }
   </script>
 </body>
 </html>
