@@ -7,6 +7,7 @@ function render(){console.log('[render] called, page=', state.page, 'user=', !!s
 // nav removed: now using app.html fixed bottom navigation bar
 function hd(t,b){return '<div class="header header-back"><button onclick="navigate(\''+(b||'home')+'\')">‹</button><div style="flex:1"><h1>'+t+'</h1></div><button class="theme-toggle" onclick="toggleTheme()" style="background:none;border:none;color:#fff;font-size:20px;padding:4px;line-height:1"><i class="fa-solid fa-moon"></i></button></div>';}
 function esc(s){if(!s)return'';return s.toString().replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+window.onerror=function(msg,url,line,col,error){var app=document.getElementById('app');if(app)app.innerHTML='<div style="padding:40px;color:red"><h3>⚠️ 全局错误</h3><p>'+String(msg)+'</p><p>位置: line '+String(line)+'</p><button onclick="location.reload()">刷新</button></div>';return true;};
 function mood(s){if(!s)return'-';return s<=3?'😢':s<=5?'😐':s<=7?'😊':'😄';}
 function today(){return new Date().toISOString().slice(0,10);}
 function toggleTheme(){var t=document.documentElement.getAttribute('data-theme');var n=t==='dark'?'':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('theme',n);var ic=n==='dark'?'☀️':'🌙';var els=document.querySelectorAll('.theme-toggle');for(var i=0;i<els.length;i++)els[i].textContent=ic;var ni=document.getElementById('nti');if(ni)ni.textContent=ic;}
