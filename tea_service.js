@@ -10,40 +10,32 @@ function setupTeaRoutes(app, auth) {
 
   // ── 1. 获取今日推荐茶饮 ──
   app.get("/api/tea/today", auth, function(req, res) {
-    var user = gQ("SELECT constitution_type, constitution FROM users WHERE id = ?", [req.userId]);
+    var user = gQ("SELECT nickname, constitution FROM users WHERE id = ?", [req.userId]);
     if (!user) return res.status(404).json({ detail: "User not found" });
 
-    var conType = user.constitution_type || user.constitution || "";
-    // 根据月份判断节气
+    var con = user.constitution || "";
+    // 根据月份判断季节
     var month = new Date().getMonth() + 1;
-    var seasons = { 3: "春", 4: "春", 5: "春", 6: "夏", 7: "夏", 8: "夏", 9: "秋", 10: "秋", 11: "秋", 12: "冬", 1: "冬", 2: "冬" };
-    var season = seasons[month] || "春";
+    var seasonMap = { 12:"冬", 1:"冬", 2:"冬", 3:"春", 4:"春", 5:"春", 6:"夏", 7:"夏", 8:"夏", 9:"秋", 10:"秋", 11:"秋" };
+    var season = seasonMap[month] || "春";
 
-    // 今日已有记录
-    var today = new Date().toISOString().slice(0, 10);
-    var todayRecord = gQ("SELECT tea_id, completed FROM tea_records WHERE user_id = ? AND record_date = ?", [req.userId, today]);
-
-    // 查询适合该体质的茶（优先精选）
+    // 查询适合该体质的茶
     var teas = [];
-    if (conType) {
-      teas = gA("SELECT * FROM tea_products WHERE suited_constitutions LIKE ? ORDER BY is_featured DESC, id", ["%" + conType.replace("质", "") + "%"]);
+    if (con && con !== "未测评") {
+      teas = gA("SELECT * FROM tea_products WHERE constitution LIKE ? LIMIT 3", ["%" + con.replace("质","") + "%"]);
     }
     if (!teas || teas.length === 0) {
-      // 回退：根据季节推荐
-      teas = gA("SELECT * FROM tea_products WHERE suited_seasons LIKE ? ORDER BY is_featured DESC, id", ["%" + season + "%"]);
+      teas = gA("SELECT * FROM tea_products WHERE season = ? OR season = '四季' LIMIT 3", [season]);
     }
     if (!teas || teas.length === 0) {
-      teas = gA("SELECT * FROM tea_products WHERE is_featured = 1 LIMIT 5");
+      teas = gA("SELECT * FROM tea_products LIMIT 3");
     }
 
     res.json({
-      user: { nickname: user.constitution_type || "未测评" },
-      constitution: user.constitution_type || user.constitution || "未测评",
-      season: season,
-      today: today,
-      hasRecord: !!todayRecord,
-      todayRecord: todayRecord || null,
-      teas: teas
+      constitution: con || "未测评",
+      user: { nickname: user.nickname || "茶友" },
+      teas: teas,
+      season: season
     });
   });
 
@@ -52,8 +44,8 @@ function setupTeaRoutes(app, auth) {
     var sql = "SELECT * FROM tea_products WHERE 1=1";
     var params = [];
     if (req.query.category) { sql += " AND category = ?"; params.push(req.query.category); }
-    if (req.query.constitution) { sql += " AND suited_constitutions LIKE ?"; params.push("%" + req.query.constitution + "%"); }
-    sql += " ORDER BY is_featured DESC, id";
+    if (req.query.constitution) { sql += " AND constitution LIKE ?"; params.push("%" + req.query.constitution + "%"); }
+    sql += " ORDER BY id";
     res.json(gA(sql, params));
   });
 
@@ -77,7 +69,7 @@ function setupTeaRoutes(app, auth) {
 
     // 检查是否解锁新徽章
     var badges = checkBadges(req.userId);
-    var record = gQ("SELECT * FROM tea_records WHERE id = (SELECT last_insert_rowid())") || gQ("SELECT * FROM tea_records ORDER BY id DESC LIMIT 1");
+    var record = gQ("SELECT * FROM tea_records ORDER BY id DESC LIMIT 1");
 
     res.json({ record: record, new_badges: badges });
   });
@@ -92,7 +84,7 @@ function setupTeaRoutes(app, auth) {
     var records = gA("SELECT * FROM tea_records WHERE user_id = ? AND record_date >= ? ORDER BY record_date DESC, time_slot", [req.userId, sinceStr]);
 
     // 统计
-    var stats = gQ("SELECT COUNT(*) as total, COUNT(DISTINCT record_date) as days, AVG(score) as avg_score FROM tea_records WHERE user_id = ? AND record_date >= ?", [req.userId, sinceStr]);
+    var stats = gQ("SELECT COUNT(*) as total, COUNT(DISTINCT record_date) as days, AVG(score) as avg_score FROM tea_records WHERE user_id = ? AND record_date >= ?", [req.userId, sinceStr]) || { total: 0, days: 0, avg_score: 0 };
 
     // 连续打卡天数
     var continuousDays = 0;
@@ -114,22 +106,16 @@ function setupTeaRoutes(app, auth) {
 
   // ── 7. 获取徽章列表 ──
   app.get("/api/tea/badges", auth, function(req, res) {
-    var allBadges = gA("SELECT * FROM tea_badges ORDER BY sort_order");
+    var allBadges = gA("SELECT * FROM tea_badges ORDER BY id");
     var userBadges = gA("SELECT badge_id FROM user_badges WHERE user_id = ?", [req.userId]);
     var earnedIds = {};
     for (var i = 0; i < userBadges.length; i++) earnedIds[userBadges[i].badge_id] = true;
-
+    var result = [];
     for (var i = 0; i < allBadges.length; i++) {
-      allBadges[i].earned = !!earnedIds[allBadges[i].id];
-      allBadges[i].earned_at = null;
-      // 找获得时间
-      for (var j = 0; j < userBadges.length; j++) {
-        if (userBadges[j].badge_id === allBadges[i].id) {
-          allBadges[i].earned_at = userBadges[j].earned_at || null;
-        }
-      }
+      var b = allBadges[i];
+      result.push({ id: b.id, name: b.name, icon: b.icon, description: b.description, condition_type: b.condition_type, condition_value: b.condition_value, earned: !!earnedIds[b.id] });
     }
-    res.json(allBadges);
+    res.json(result);
   });
 
   // ── 8. 获取节气信息 + 节气茶饮推荐 ──
@@ -137,22 +123,20 @@ function setupTeaRoutes(app, auth) {
     var today = new Date().toISOString().slice(5, 10);
     var currentTerm = gQ("SELECT * FROM solar_terms ORDER BY CASE WHEN date_mmdd >= ? THEN 0 ELSE 1 END, date_mmdd LIMIT 1", [today]);
 
-    // 节气推荐茶饮
     var teas = [];
     if (currentTerm) {
       var month = parseInt(currentTerm.date_mmdd.slice(0, 2));
-      var seasonMap = { "01": "冬", "02": "冬", "03": "春", "04": "春", "05": "春", "06": "夏", "07": "夏", "08": "夏", "09": "秋", "10": "秋", "11": "秋", "12": "冬" };
-      var season = seasonMap[currentTerm.date_mmdd.slice(0, 2)] || "春";
-      teas = gA("SELECT * FROM tea_products WHERE suited_seasons LIKE ? LIMIT 3", ["%" + season + "%"]);
+      var seasonMap = { 12:"冬", 1:"冬", 2:"冬", 3:"春", 4:"春", 5:"春", 6:"夏", 7:"夏", 8:"夏", 9:"秋", 10:"秋", 11:"秋" };
+      var season = seasonMap[month] || "春";
+      teas = gA("SELECT * FROM tea_products WHERE season = ? OR season = '四季' LIMIT 6", [season]);
     }
 
     res.json({ current_term: currentTerm, teas: teas });
   });
 
-  // ── 9.1 茶养统计数据（前端 stats 屏调用） ──
+  // ── 9.1 茶养统计数据 ──
   app.get("/api/tea/stats", auth, function(req, res) {
     var allStats = gQ("SELECT COUNT(*) as total_cups, COUNT(DISTINCT record_date) as total_days FROM tea_records WHERE user_id = ?", [req.userId]) || { total_cups: 0, total_days: 0 };
-    // 连续天数
     var continuous = 0;
     var d = new Date();
     while (true) {
@@ -160,29 +144,27 @@ function setupTeaRoutes(app, auth) {
       var dayRec = gQ("SELECT id FROM tea_records WHERE user_id = ? AND record_date = ?", [req.userId, ds]);
       if (dayRec) { continuous++; d.setDate(d.getDate() - 1); } else break;
     }
-    // 最近的打卡记录
     var recent = gA("SELECT * FROM tea_records WHERE user_id = ? ORDER BY record_date DESC, id DESC LIMIT 5", [req.userId]);
-    // 周打卡
     var weekStats = [];
     for (var i = 6; i >= 0; i--) {
       var day = new Date();
       day.setDate(day.getDate() - i);
-      var ds = day.toISOString().slice(0, 10);
-      var dayCups = gQ("SELECT COUNT(*) as c FROM tea_records WHERE user_id = ? AND record_date = ?", [req.userId, ds]);
-      weekStats.push({ date: ds, cups: dayCups ? dayCups.c : 0 });
+      var ds2 = day.toISOString().slice(0, 10);
+      var dayCups = gQ("SELECT COUNT(*) as c FROM tea_records WHERE user_id = ? AND record_date = ?", [req.userId, ds2]);
+      weekStats.push({ date: ds2, cups: dayCups ? dayCups.c : 0 });
     }
     res.json({
       total_cups: allStats.total_cups || 0,
       total_days: allStats.total_days || 0,
       continuous_days: continuous,
-      avg_score: gQ("SELECT AVG(score) as avg FROM tea_records WHERE user_id = ? AND score IS NOT NULL", [req.userId]) || {},
+      avg_score: (gQ("SELECT AVG(score) as avg FROM tea_records WHERE user_id = ? AND score IS NOT NULL", [req.userId]) || {}).avg || 0,
       most_drunk: gQ("SELECT tea_name, COUNT(*) as c FROM tea_records WHERE user_id = ? AND tea_name != '' GROUP BY tea_name ORDER BY c DESC LIMIT 1", [req.userId]) || null,
       recent: recent || [],
       week: weekStats
     });
   });
 
-  // ── 9.2 茶养知识库（前端 knowledge 屏调用） ──
+  // ── 9.2 茶养知识库 ──
   app.get("/api/tea/knowledge", function(req, res) {
     var items = [
       { id: 1, title: "晨起空腹不宜饮浓茶", category: "饮茶须知", summary: "空腹饮浓茶会刺激胃黏膜，建议先吃些点心再饮茶。", icon: "☕" },
@@ -226,47 +208,39 @@ function checkBadges(userId) {
   var sDb = function() { return global.saveDb(); };
 
   var newBadges = [];
-  var badges = gA("SELECT * FROM tea_badges ORDER BY sort_order");
+  var badges = gA("SELECT * FROM tea_badges ORDER BY id");
   var earned = gA("SELECT badge_id FROM user_badges WHERE user_id = ?", [userId]);
   var earnedMap = {};
   for (var i = 0; i < earned.length; i++) earnedMap[earned[i].badge_id] = true;
 
   for (var i = 0; i < badges.length; i++) {
     if (earnedMap[badges[i].id]) continue;
-    var req;
-    try { req = JSON.parse(badges[i].requirement); } catch(e) { continue; }
-
     var qualified = false;
-    if (req.type === "continuous_days") {
-      var count = gQ("SELECT COUNT(DISTINCT record_date) as c FROM (SELECT record_date FROM tea_records WHERE user_id = ? ORDER BY record_date DESC LIMIT ?)", [userId, req.days]);
-      // 简化检测：连续打卡天数
-      var continuous = 0;
+    var b = badges[i];
+    if (b.condition_type === "records_count") {
+      var count = gQ("SELECT COUNT(*) as c FROM tea_records WHERE user_id = ?", [userId]);
+      qualified = count && count.c >= b.condition_value;
+    } else if (b.condition_type === "continuous_days") {
+      var cont = 0;
       var d = new Date();
       while (true) {
         var ds = d.toISOString().slice(0, 10);
-        var dayRec = gQ("SELECT id FROM tea_records WHERE user_id = ? AND record_date = ?", [userId, ds]);
-        if (dayRec) { continuous++; d.setDate(d.getDate() - 1); }
-        else break;
+        var dr = gQ("SELECT id FROM tea_records WHERE user_id = ? AND record_date = ?", [userId, ds]);
+        if (dr) { cont++; d.setDate(d.getDate() - 1); } else break;
       }
-      qualified = continuous >= req.days;
-    } else if (req.type === "total_cups") {
-      var total = gQ("SELECT COUNT(*) as c FROM tea_records WHERE user_id = ?", [userId]);
-      qualified = total && total.c >= req.count;
-    } else if (req.type === "unique_teas") {
+      qualified = cont >= b.condition_value;
+    } else if (b.condition_type === "unique_teas") {
       var unique = gQ("SELECT COUNT(DISTINCT tea_id) as c FROM tea_records WHERE user_id = ? AND tea_id IS NOT NULL", [userId]);
-      qualified = unique && unique.c >= req.count;
-    } else if (req.type === "time_slot") {
-      var slotCount = gQ("SELECT COUNT(*) as c FROM tea_records WHERE user_id = ? AND time_slot = ?", [userId, req.slot]);
-      qualified = slotCount && slotCount.c >= req.count;
-    } else if (req.type === "first_assessment") {
+      qualified = unique && unique.c >= b.condition_value;
+    } else if (b.condition_type === "first_assessment") {
       var rec = gQ("SELECT id FROM constitution_records WHERE user_id = ?", [userId]);
       qualified = !!rec;
     }
 
     if (qualified) {
-      gR("INSERT INTO user_badges (user_id, badge_id) VALUES (?, ?)", [userId, badges[i].id]);
+      gR("INSERT INTO user_badges (user_id, badge_id) VALUES (?, ?)", [userId, b.id]);
       sDb();
-      newBadges.push(badges[i]);
+      newBadges.push({ name: b.name, icon: b.icon, description: b.description });
     }
   }
   return newBadges;
