@@ -1,10 +1,12 @@
-﻿// 食术·中医体质养生 - Service Worker v2
-const CACHE_NAME = 'wellness-v2';
+﻿// 强制注销所有旧版 SW 并清理全部旧缓存
+self.registration.unregister().then(() => self.clients.matchAll().then(clients => clients.forEach(c => c.navigate(c.url))));
+
+// 食术·中医体质养生 - Service Worker v5 (强制刷新)
+const CACHE_NAME = 'wellness-v5-' + self.location.href.match(/sw\.js\?v=(\d+)/)?.[1] || '';
 const ASSETS = [
   '/',
   '/app',
   '/styles.css',
-  '/app_test.js',
   '/manifest.json',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
   'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;600;700&display=swap'
