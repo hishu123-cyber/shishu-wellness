@@ -1,4 +1,4 @@
-/* 体质养生APP样式 v2 - 手机适配优化版 */
+﻿/* 体质养生APP样式 v2 - 手机适配优化版 */
 :root {
   --green: #4CAF50;
   --green-dark: #1B3A2D;
@@ -394,3 +394,483 @@ input, textarea, button { font-family: inherit; font-size: inherit; }
 [data-theme="dark"] .tea-season-card { background: var(--card-bg); }
 [data-theme="dark"] .question-item { background: var(--card-bg); }
 [data-theme="dark"] .category-filters button { background: var(--card-bg); color: var(--text2); }
+
+
+/* ═══════════════ Shop Module (商城) - 淘宝风格 v2.0 ═══════════════ */
+
+/* 商城顶部搜索栏 */
+.shop-header {
+  background: linear-gradient(135deg, var(--green-dark), var(--green));
+  padding: 12px 16px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.shop-search-bar {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 20px;
+  padding: 8px 12px;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.shop-search-bar i {
+  color: var(--text3);
+  font-size: 14px;
+}
+
+.shop-search-bar input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  background: transparent;
+  color: var(--text);
+}
+
+.shop-search-bar input::placeholder {
+  color: #999;
+}
+
+/* 商城页面 */
+.shop-page {
+  padding: 0 !important;
+  background: var(--bg);
+}
+
+/* 轮播广告位 */
+.shop-banner {
+  position: relative;
+  width: 100%;
+  height: 160px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.banner-slides {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.banner-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.banner-slide.active {
+  opacity: 1;
+}
+
+.banner-content {
+  text-align: center;
+  color: #fff;
+  padding: 20px;
+}
+
+.banner-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.banner-subtitle {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.banner-dots {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+}
+
+.banner-dots .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.banner-dots .dot.active {
+  width: 18px;
+  border-radius: 3px;
+  background: #fff;
+}
+
+/* 金刚区（快捷入口） */
+.shop-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--card-bg);
+  margin-bottom: 8px;
+}
+
+.shortcut-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.shortcut-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.shortcut-label {
+  font-size: 11px;
+  color: var(--text2);
+  text-align: center;
+}
+
+/* 分类导航条 */
+.shop-category-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 56px;
+  z-index: 40;
+}
+
+.category-scroll {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.category-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.category-tag {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.category-tag.active {
+  background: var(--green);
+  color: #fff;
+}
+
+.category-tag:active {
+  transform: scale(0.95);
+}
+
+.sort-btn {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  background: var(--green-light);
+  color: var(--green-dark);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 商品列表 */
+.shop-products {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  padding: 8px;
+  padding-bottom: 80px;
+}
+
+.shop-product-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.shop-product-card:active {
+  transform: scale(0.98);
+}
+
+.product-image {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.product-emoji {
+  font-size: 56px;
+}
+
+.product-discount {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #f44336;
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.product-info {
+  padding: 10px;
+}
+
+.product-name {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.product-desc {
+  font-size: 11px;
+  color: var(--text3);
+  line-height: 1.4;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.product-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.product-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.price-current {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--green);
+}
+
+.price-original {
+  font-size: 11px;
+  color: #999;
+  text-decoration: line-through;
+}
+
+.product-sales {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* 空状态 */
+.shop-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+}
+
+/* 购物车浮标 */
+.cart-float-btn {
+  position: fixed;
+  bottom: 72px;
+  right: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--green), #2d8a4e);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.4);
+  z-index: 90;
+  cursor: pointer;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #f44336;
+  color: #fff;
+  font-size: 11px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+/* 排序弹窗 */
+.sort-popup {
+  background: var(--card-bg);
+  border-radius: 16px 16px 0 0;
+  width: 100%;
+  max-width: 600px;
+  max-height: 60vh;
+  overflow: hidden;
+}
+
+.sort-popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.sort-options {
+  padding: 8px;
+}
+
+.sort-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.sort-option:active {
+  background: var(--bg);
+}
+
+.sort-option.active {
+  background: var(--green-light);
+}
+
+.sort-icon {
+  font-size: 20px;
+}
+
+.sort-label {
+  flex: 1;
+  font-size: 14px;
+}
+
+.sort-check {
+  color: var(--green);
+  font-weight: 600;
+}
+
+/* 暗黑模式适配 */
+[data-theme="dark"] .shop-search-bar {
+  background: #2d2d2d;
+}
+
+[data-theme="dark"] .shop-search-bar input {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .banner-slide {
+  background: var(--card-bg);
+}
+
+[data-theme="dark"] .shop-shortcuts {
+  background: var(--card-bg);
+}
+
+[data-theme="dark"] .shop-category-bar {
+  background: var(--card-bg);
+}
+
+[data-theme="dark"] .category-tag {
+  background: var(--bg);
+}
+
+[data-theme="dark"] .sort-btn {
+  background: #1B3A2D;
+}
+
+[data-theme="dark"] .shop-product-card {
+  background: var(--card-bg);
+}
+
+[data-theme="dark"] .sort-option.active {
+  background: #1B3A2D;
+}
+
+/* 响应式调整 */
+@media (max-width: 360px) {
+  .shop-shortcuts {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .shortcut-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+  
+  .shortcut-label {
+    font-size: 10px;
+  }
+}
+
+@media (min-width: 600px) {
+  .shop-products {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .shop-products {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
